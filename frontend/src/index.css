@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* ─── Base ─────────────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: #020817;
+  color: #e2e8f0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: #0a1628; }
+::-webkit-scrollbar-thumb  { background: #1e3a5f; border-radius: 3px; }
+
+/* ─── Glow utilities ────────────────────────────────────────── */
+.glow-cyan   { box-shadow: 0 0 20px rgba(56,189,248,0.35), 0 0 40px rgba(56,189,248,0.1); }
+.glow-green  { box-shadow: 0 0 20px rgba(34,197,94,0.35),  0 0 40px rgba(34,197,94,0.1); }
+.glow-red    { box-shadow: 0 0 20px rgba(239,68,68,0.35),  0 0 40px rgba(239,68,68,0.1); }
+.glow-yellow { box-shadow: 0 0 20px rgba(234,179,8,0.35),  0 0 40px rgba(234,179,8,0.1); }
+
+/* ─── Glass card ────────────────────────────────────────────── */
+.glass-card {
+  background: rgba(13, 22, 44, 0.85);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(56,189,248,0.1);
+}
+
+/* ─── Pulse dot ─────────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(1.3); }
+}
+.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+/* ─── Scan line ─────────────────────────────────────────────── */
+@keyframes scan {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 100%; }
+}
+
+/* ─── React Flow overrides ──────────────────────────────────── */
+.react-flow__background  { background: transparent !important; }
+.react-flow__attribution { display: none !important; }
+
+.react-flow__controls {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  bottom: 12px !important;
+  right: 12px !important;
+}
+
+.react-flow__controls-button {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: unset !important;
+  padding: 0 !important;
+  background: rgba(13, 22, 44, 0.92) !important;
+  border: 1px solid rgba(56,189,248,0.18) !important;
+  border-radius: 6px !important;
+  color: #475569 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: border-color 0.15s, color 0.15s !important;
+}
+
+.react-flow__controls-button:hover {
+  background: rgba(56,189,248,0.1) !important;
+  border-color: rgba(56,189,248,0.4) !important;
+  color: #38bdf8 !important;
+}
+
+.react-flow__controls-button svg {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.react-flow__edge-path { stroke-width: 1.5; }

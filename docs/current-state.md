@@ -1,17 +1,17 @@
 # RootCauseX — Current Implementation State
 
 Last Updated:
-INITIAL SETUP
+Phase 1 — Runtime World (Frontend DONE · Backend NOT STARTED · AI NOT STARTED)
 
 ---
 
 # Current Phase
 
 Phase:
-Project Foundation Setup
+Phase 1 — Runtime World
 
 Status:
-IN PROGRESS
+IN PROGRESS 🔄 — Frontend complete, Backend not started, AI not started
 
 ---
 
@@ -19,17 +19,23 @@ IN PROGRESS
 
 ## Frontend
 
-- [ ] Dashboard shell
-- [ ] Metrics cards
-- [ ] Dependency graph
-- [ ] Incident banner
-- [ ] AI chat panel
-- [ ] Timeline view
-- [ ] Cognition stream
+- ✅ Vite + React scaffold
+- ✅ Tailwind CSS v4 (via @tailwindcss/vite)
+- ✅ Framer Motion installed
+- ✅ React Flow (@xyflow/react) installed
+- ✅ Lucide React icons installed
+- ✅ Dark theme base CSS (cinematic, observability-inspired)
+- ✅ Sidebar with nav icons
+- ✅ Header with system status indicator
+- ✅ SystemStatus banner (healthy / degraded / incident)
+- ✅ MetricsCard per service (latency, error rate, retries, throughput + trends)
+- ✅ DependencyGraph (React Flow — 5 nodes, 4 animated edges, custom nodes)
+- ✅ Dashboard layout (grid of 5 metric cards + dependency graph)
+- ✅ Mock runtime data (services, dependencies, deployments, systemStatus)
 
 ---
 
-## Backend
+## Backend — NOT STARTED ❌
 
 - [ ] Spring Boot setup
 - [ ] Metrics APIs
@@ -40,7 +46,7 @@ IN PROGRESS
 
 ---
 
-## AI
+## AI — NOT STARTED ❌
 
 - [ ] Claude integration
 - [ ] Runtime reasoning prompts
@@ -53,24 +59,19 @@ IN PROGRESS
 
 ## Services
 
-- Auth Service
-- Payment Service
-- Order Service
-- Inventory Service
-- Notification Service
+- Auth Service      (v2.1) — healthy
+- Payment Service   (v1.8) — healthy
+- Order Service     (v3.2) — healthy
+- Inventory Service (v2.0) — healthy
+- Notification Service (v1.5) — healthy
 
 ---
 
 ## Active Incident Story
 
-Current simulated incident:
+No active incident (Phase 1 = healthy system baseline).
 
-Every evening between 6–7 PM:
-payment-service latency spikes.
-
-Likely cause:
-retry amplification introduced
-in auth-service v2.1.
+Incident simulation begins in Phase 2 — Drift Detection.
 
 ---
 
@@ -78,24 +79,42 @@ in auth-service v2.1.
 
 ## Existing APIs
 
-| Endpoint | Status |
+| Endpoint          | Status    |
 |---|---|
-| GET /services | NOT BUILT |
-| GET /metrics | NOT BUILT |
-| GET /deployments | NOT BUILT |
-| GET /commits | NOT BUILT |
+| GET /services     | NOT BUILT |
+| GET /metrics      | NOT BUILT |
+| GET /deployments  | NOT BUILT |
+| GET /commits      | NOT BUILT |
 | POST /investigate | NOT BUILT |
+
+Note: Frontend currently uses mock data from src/data/mockData.js.
+Backend integration = swap mockData imports for API calls.
 
 ---
 
 # Current Frontend State
 
+## Files Created
+
+| File                                      | Status   |
+|---|---|
+| frontend/vite.config.js                   | ✅ DONE  |
+| frontend/src/index.css                    | ✅ DONE  |
+| frontend/src/main.jsx                     | ✅ DONE  |
+| frontend/src/App.jsx                      | ✅ DONE  |
+| frontend/src/data/mockData.js             | ✅ DONE  |
+| frontend/src/components/Sidebar.jsx       | ✅ DONE  |
+| frontend/src/components/Header.jsx        | ✅ DONE  |
+| frontend/src/components/SystemStatus.jsx  | ✅ DONE  |
+| frontend/src/components/MetricsCard.jsx   | ✅ DONE  |
+| frontend/src/components/DependencyGraph.jsx | ✅ DONE |
+| frontend/src/components/Dashboard.jsx     | ✅ DONE  |
+
 ## Existing Pages
 
-| Page | Status |
+| Page       | Status  |
 |---|---|
-| Dashboard | NOT BUILT |
-| Investigation Panel | NOT BUILT |
+| Dashboard  | ✅ DONE |
 
 ---
 
@@ -103,7 +122,7 @@ in auth-service v2.1.
 
 ## Active Bugs
 
-- None
+- None (build passes clean)
 
 ---
 
@@ -113,42 +132,33 @@ in auth-service v2.1.
 
 ---
 
-# Current UI State
+# Backend Integration Notes
 
-No frontend implemented yet.
+When backend is ready:
 
----
+Replace mock data in `src/data/mockData.js` with API calls.
 
-# Current Backend Behavior
+Expected endpoints:
+- GET  /services     → replaces `services` export
+- GET  /metrics      → replaces `services[].metrics`
+- GET  /deployments  → replaces `deployments` export
+- GET  /commits      → new data
+- POST /investigate  → AI investigation panel
 
-No backend implemented yet.
-
----
-
-# Current AI Behavior
-
-No AI integration implemented yet.
-
----
-
-# Files Created
-
-- docs/rootcausex-context.md
-- docs/current-state.md
-- docs/claude-rules.md
-- docs/implementation-plan.md
+Add a `src/api/client.js` file with fetch wrappers.
+The components themselves do NOT need to change.
 
 ---
 
 # Next Immediate Goal
 
-Initialize:
-- frontend React app
-- backend Spring Boot app
-- repository structure
+Phase 2 — Drift Detection:
 
-Then begin Phase 1:
-Runtime World implementation.
+1. Add incident simulation trigger
+2. Show degraded/critical service states
+3. Animate service state transitions
+4. Add incident banner overlay
+5. Show anomaly alerts on metrics cards
 
 ---
 
