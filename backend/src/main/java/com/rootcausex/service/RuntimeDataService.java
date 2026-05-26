@@ -10,28 +10,36 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Runtime data service — business logic layer between controllers and the mock data repository.
+ * Runtime data service — business logic layer between controllers and the data layer.
  *
- * Kept intentionally thin for Phase 1.
- * Phase 2 (Drift Detection) will add state mutation, anomaly scoring, and incident simulation here.
+ * Phase 1: delegated directly to MockDataRepository (static data).
+ * Phase 2: getAllServices() and getSystemStatus() now route through
+ *          IncidentStateManager so live incident state is reflected
+ *          in every API response automatically.
+ *
+ * Controllers are unchanged — only this layer changes.
  */
 @Service
 public class RuntimeDataService {
 
-    private final MockDataRepository repository;
+    private final MockDataRepository    repository;
+    private final IncidentStateManager  incidentStateManager;
 
-    public RuntimeDataService(MockDataRepository repository) {
-        this.repository = repository;
+    public RuntimeDataService(MockDataRepository repository,
+                              IncidentStateManager incidentStateManager) {
+        this.repository           = repository;
+        this.incidentStateManager = incidentStateManager;
     }
 
     // ── Services ──────────────────────────────────────────────────────────────
 
+    /** Returns current live service state (reflects incident phase if active). */
     public List<ServiceInfo> getAllServices() {
-        return repository.getServices();
+        return incidentStateManager.getCurrentServices();
     }
 
     public Optional<ServiceInfo> getServiceById(String id) {
-        return repository.getServices().stream()
+        return incidentStateManager.getCurrentServices().stream()
             .filter(s -> s.id().equals(id))
             .findFirst();
     }
@@ -42,13 +50,8 @@ public class RuntimeDataService {
 
     // ── Metrics ───────────────────────────────────────────────────────────────
 
-    /**
-     * Returns a map of serviceId → ServiceMetrics for all services.
-     * Useful for the frontend to get a lightweight metrics snapshot
-     * without the full service descriptor payload.
-     */
     public Map<String, ServiceMetrics> getAllMetrics() {
-        return repository.getServices().stream()
+        return incidentStateManager.getCurrentServices().stream()
             .collect(Collectors.toMap(ServiceInfo::id, ServiceInfo::metrics));
     }
 
@@ -82,7 +85,8 @@ public class RuntimeDataService {
 
     // ── System ────────────────────────────────────────────────────────────────
 
+    /** Returns live system status (reflects incident if active). */
     public SystemStatus getSystemStatus() {
-        return repository.getSystemStatus();
+        return incidentStateManager.getCurrentSystemStatus();
     }
 }
