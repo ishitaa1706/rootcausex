@@ -1,7 +1,7 @@
 # RootCauseX — Current Implementation State
 
 Last Updated:
-Phase 1 — Runtime World (Frontend DONE · Backend NOT STARTED · AI NOT STARTED)
+Phase 1 — Runtime World (Frontend DONE · Backend DONE · AI NOT STARTED)
 
 ---
 
@@ -11,7 +11,7 @@ Phase:
 Phase 1 — Runtime World
 
 Status:
-IN PROGRESS 🔄 — Frontend complete, Backend not started, AI not started
+COMPLETE ✅ — Frontend done, Backend done, AI not started
 
 ---
 
@@ -32,17 +32,29 @@ IN PROGRESS 🔄 — Frontend complete, Backend not started, AI not started
 - ✅ DependencyGraph (React Flow — 5 nodes, 4 animated edges, custom nodes)
 - ✅ Dashboard layout (grid of 5 metric cards + dependency graph)
 - ✅ Mock runtime data (services, dependencies, deployments, systemStatus)
+- ✅ API client (src/api/client.js — fetch wrappers for all backend endpoints)
+- ✅ Dashboard live API integration (fetches from backend, falls back to mock data)
 
 ---
 
-## Backend — NOT STARTED ❌
+## Backend — DONE ✅
 
-- [ ] Spring Boot setup
-- [ ] Metrics APIs
-- [ ] Services APIs
-- [ ] Deployments APIs
-- [ ] Drift detection engine
-- [ ] Investigation endpoint
+- ✅ Spring Boot 3.3.5 project setup (Maven)
+- ✅ CORS configuration (allows localhost:5173)
+- ✅ Model layer (Java records: MetricValue, ServiceMetrics, ServiceInfo, Dependency, Deployment, Commit, SystemStatus)
+- ✅ MockDataRepository (in-memory, mirrors frontend mock data exactly)
+- ✅ RuntimeDataService (business logic layer)
+- ✅ GET /services — all services with full metrics
+- ✅ GET /services/{id} — single service by id
+- ✅ GET /services/dependencies — dependency graph edges
+- ✅ GET /metrics — all metrics (serviceId → metrics map)
+- ✅ GET /metrics/{serviceId} — metrics for a specific service
+- ✅ GET /deployments — all deployment events
+- ✅ GET /deployments/{serviceId} — deployments for a service
+- ✅ GET /commits — full commit history across all services
+- ✅ GET /commits/{serviceId} — commits scoped to a specific service
+- ✅ GET /system/status — aggregated system health summary
+- ✅ Backend README with startup instructions and API reference
 
 ---
 
@@ -77,32 +89,77 @@ Incident simulation begins in Phase 2 — Drift Detection.
 
 # Current Backend State
 
-## Existing APIs
+## Implemented APIs
 
-| Endpoint          | Status    |
-|---|---|
-| GET /services     | NOT BUILT |
-| GET /metrics      | NOT BUILT |
-| GET /deployments  | NOT BUILT |
-| GET /commits      | NOT BUILT |
-| POST /investigate | NOT BUILT |
+| Endpoint                    | Status   |
+|-----------------------------|----------|
+| GET /services               | ✅ DONE  |
+| GET /services/{id}          | ✅ DONE  |
+| GET /services/dependencies  | ✅ DONE  |
+| GET /metrics                | ✅ DONE  |
+| GET /metrics/{serviceId}    | ✅ DONE  |
+| GET /deployments            | ✅ DONE  |
+| GET /deployments/{serviceId}| ✅ DONE  |
+| GET /commits                | ✅ DONE  |
+| GET /commits/{serviceId}    | ✅ DONE  |
+| GET /system/status          | ✅ DONE  |
+| POST /investigate           | NOT BUILT (Phase 4) |
 
-Note: Frontend currently uses mock data from src/data/mockData.js.
-Backend integration = swap mockData imports for API calls.
+---
+
+# Backend Files Created
+
+| File                                                                    | Status  |
+|-------------------------------------------------------------------------|---------|
+| backend/pom.xml                                                         | ✅ DONE |
+| backend/README.md                                                       | ✅ DONE |
+| backend/src/main/resources/application.properties                       | ✅ DONE |
+| backend/src/main/java/com/rootcausex/RootCauseXApplication.java        | ✅ DONE |
+| backend/src/main/java/com/rootcausex/config/CorsConfig.java            | ✅ DONE |
+| backend/src/main/java/com/rootcausex/model/MetricValue.java            | ✅ DONE |
+| backend/src/main/java/com/rootcausex/model/ServiceMetrics.java         | ✅ DONE |
+| backend/src/main/java/com/rootcausex/model/ServiceInfo.java            | ✅ DONE |
+| backend/src/main/java/com/rootcausex/model/Dependency.java             | ✅ DONE |
+| backend/src/main/java/com/rootcausex/model/Deployment.java             | ✅ DONE |
+| backend/src/main/java/com/rootcausex/model/Commit.java                 | ✅ DONE |
+| backend/src/main/java/com/rootcausex/model/SystemStatus.java           | ✅ DONE |
+| backend/src/main/java/com/rootcausex/repository/MockDataRepository.java| ✅ DONE |
+| backend/src/main/java/com/rootcausex/service/RuntimeDataService.java   | ✅ DONE |
+| backend/src/main/java/com/rootcausex/controller/ServicesController.java| ✅ DONE |
+| backend/src/main/java/com/rootcausex/controller/MetricsController.java | ✅ DONE |
+| backend/src/main/java/com/rootcausex/controller/DeploymentsController.java | ✅ DONE |
+| backend/src/main/java/com/rootcausex/controller/CommitsController.java | ✅ DONE |
+| backend/src/main/java/com/rootcausex/controller/SystemController.java  | ✅ DONE |
+
+---
+
+# Frontend Files Updated (Phase 1 Backend Integration)
+
+| File                                      | Status        |
+|-------------------------------------------|---------------|
+| frontend/src/api/client.js                | ✅ CREATED    |
+| frontend/src/components/Dashboard.jsx     | ✅ UPDATED    |
+
+Dashboard now:
+- Starts with mock data for instant display
+- Fetches from backend API on mount
+- Shows "connected to backend" when live
+- Falls back silently if backend is offline
 
 ---
 
 # Current Frontend State
 
-## Files Created
+## Files
 
 | File                                      | Status   |
-|---|---|
+|-------------------------------------------|----------|
 | frontend/vite.config.js                   | ✅ DONE  |
 | frontend/src/index.css                    | ✅ DONE  |
 | frontend/src/main.jsx                     | ✅ DONE  |
 | frontend/src/App.jsx                      | ✅ DONE  |
 | frontend/src/data/mockData.js             | ✅ DONE  |
+| frontend/src/api/client.js                | ✅ DONE  |
 | frontend/src/components/Sidebar.jsx       | ✅ DONE  |
 | frontend/src/components/Header.jsx        | ✅ DONE  |
 | frontend/src/components/SystemStatus.jsx  | ✅ DONE  |
@@ -110,11 +167,25 @@ Backend integration = swap mockData imports for API calls.
 | frontend/src/components/DependencyGraph.jsx | ✅ DONE |
 | frontend/src/components/Dashboard.jsx     | ✅ DONE  |
 
-## Existing Pages
+---
 
-| Page       | Status  |
-|---|---|
-| Dashboard  | ✅ DONE |
+# How to Run
+
+## Backend
+
+```bash
+cd backend
+mvn spring-boot:run
+```
+Runs on: http://localhost:8080
+
+## Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+Runs on: http://localhost:5173
 
 ---
 
@@ -132,33 +203,17 @@ Backend integration = swap mockData imports for API calls.
 
 ---
 
-# Backend Integration Notes
-
-When backend is ready:
-
-Replace mock data in `src/data/mockData.js` with API calls.
-
-Expected endpoints:
-- GET  /services     → replaces `services` export
-- GET  /metrics      → replaces `services[].metrics`
-- GET  /deployments  → replaces `deployments` export
-- GET  /commits      → new data
-- POST /investigate  → AI investigation panel
-
-Add a `src/api/client.js` file with fetch wrappers.
-The components themselves do NOT need to change.
-
----
-
 # Next Immediate Goal
 
 Phase 2 — Drift Detection:
 
-1. Add incident simulation trigger
-2. Show degraded/critical service states
-3. Animate service state transitions
-4. Add incident banner overlay
-5. Show anomaly alerts on metrics cards
+1. Add incident simulation trigger (POST /incident/trigger)
+2. Make backend hold mutable service state (replace immutable records with stateful beans)
+3. Show degraded/critical service states on MetricsCard
+4. Animate service state transitions
+5. Add incident banner overlay
+6. Show anomaly alerts on metrics cards
+7. Frontend polling (every 3–5s) to pick up live state changes
 
 ---
 

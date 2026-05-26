@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import MetricsCard from './MetricsCard'
 import DependencyGraph from './DependencyGraph'
 import SystemStatus from './SystemStatus'
-import { services } from '../data/mockData'
+import { services as mockServices } from '../data/mockData'
+import { api } from '../api/client'
 
 function SectionLabel({ text }) {
   return (
@@ -19,6 +21,17 @@ function SectionLabel({ text }) {
 }
 
 export default function Dashboard() {
+  // Start with mock data so the UI is instantly visible.
+  // Swap to live API data once the backend responds.
+  const [services, setServices] = useState(mockServices)
+  const [liveData, setLiveData] = useState(false)
+
+  useEffect(() => {
+    api.getServices()
+      .then(data => { setServices(data); setLiveData(true) })
+      .catch(() => { /* backend offline — mock data stays */ })
+  }, [])
+
   return (
     <div
       className="flex-1 overflow-auto px-6 py-5"
@@ -35,7 +48,8 @@ export default function Dashboard() {
           Runtime Dashboard
         </h1>
         <p className="text-sm font-mono" style={{ color: '#475569' }}>
-          Live production environment&nbsp;·&nbsp;5 services monitored&nbsp;·&nbsp;mock runtime data
+          Live production environment&nbsp;·&nbsp;5 services monitored&nbsp;·&nbsp;
+          {liveData ? 'connected to backend' : 'mock runtime data'}
         </p>
       </motion.div>
 
