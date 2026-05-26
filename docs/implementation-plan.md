@@ -62,22 +62,50 @@ Incident gains historical context.
 
 ---
 
-# Phase 4 — AI Investigation
+# Phase 4 — AI Investigation Workflows
 
 ## Goal
 
-Enable conversational debugging.
+Enable contextual AI-native investigation triggered directly from runtime anomalies.
+
+## Architecture
+
+NOT a generic chatbot. NOT ChatGPT inside a dashboard.
+
+AI is embedded into the runtime system:
+- "Investigate" button attached to each anomaly card
+- Platform auto-gathers full runtime context before Claude responds
+- Claude generates a structured RCA report automatically
+- Follow-up conversational chat opens after the RCA
 
 ## Deliverables
 
-- AI chat panel
-- investigation endpoint
-- runtime reasoning prompts
-- AI-generated explanations
+Backend:
+- InvestigationContextService — aggregates full runtime context bundle
+- InvestigationService — Claude API integration + structured prompt builder
+- InvestigationController — POST /investigate (streams response via SSE)
+
+Frontend:
+- AnomalyFeed.jsx — add "Investigate" button to each anomaly card
+- InvestigationPanel.jsx — side panel: anomaly context + streaming RCA + follow-up chat
+- App.jsx — add investigatingAnomaly state
+- api/client.js — add postInvestigate with SSE streaming support
+
+## RCA Response Structure
+
+Claude must respond in this format:
+1. Probable Root Cause
+2. Affected Systems
+3. Propagation Path
+4. Supporting Evidence
+5. Correlated Deployments
+6. Recommended Next Investigation
 
 ## Visible Outcome
 
-AI explains probable causes behind incidents.
+Developer clicks "Investigate" on an anomaly.
+AI instantly generates a structured RCA report with evidence.
+Developer follows up in chat to dig deeper.
 
 ---
 

@@ -79,12 +79,14 @@ as raw facts so Claude genuinely adds value.
 In real production, monitoring systems (Prometheus, Datadog, CloudWatch) emit only
 raw metric values — they never know the "why". Our data model mirrors that correctly.
 
-## AI — NOT STARTED ❌
-- [ ] Claude API integration
-- [ ] POST /investigate endpoint
-- [ ] Runtime reasoning prompt engineering
-- [ ] AI chat panel
-- [ ] Streaming response UI
+## Phase 4 — AI Investigation Workflows ❌ NOT STARTED
+- [ ] InvestigationContextService.java — context aggregation service
+- [ ] InvestigationService.java — Claude API integration + prompt builder
+- [ ] InvestigationController.java — POST /investigate endpoint
+- [ ] InvestigationPanel.jsx — investigation side panel with streaming RCA output
+- [ ] AnomalyFeed.jsx — add "Investigate" button to each anomaly card
+- [ ] App.jsx — add investigatingAnomaly state
+- [ ] api/client.js — add postInvestigate function
 
 ---
 
@@ -146,14 +148,39 @@ cd frontend && npm run dev
 
 ---
 
-# Next — Phase 4: AI Investigation
+# Next — Phase 4: AI Investigation Workflows
+
+## Product Direction
+
+We are NOT building a generic chatbot or ChatGPT inside a dashboard.
+
+We ARE building contextual AI-native investigation workflows:
+- AI is embedded INTO the runtime system
+- Investigation is triggered from anomalies directly
+- Context is gathered automatically before Claude responds
+- RCA is structured and evidence-driven
+- Follow-up chat opens after the RCA for deeper investigation
+
+## Investigation Flow
+
+```
+runtime anomaly detected
+→ user clicks "Investigate" on anomaly card
+→ platform automatically gathers full runtime context
+→ Claude generates structured RCA automatically
+→ follow-up investigation chat opens
+→ developer asks deeper questions
+```
+
+The AI should NEVER start from an empty chat.
+Context is always pre-loaded before Claude responds.
 
 ## Steps
-1. POST /investigate — gather runtime context bundle → Claude API
-2. Build structured investigation prompt (services + anomalies + commits + timeline)
-3. AI chat panel in frontend
-4. Streaming response (SSE or chunked)
-5. Root-cause explanation output
+1. InvestigationContextService — aggregate full runtime context bundle
+2. POST /investigate — receive anomaly id + question → call Claude API → stream response
+3. "Investigate" button on each anomaly card in AnomalyFeed
+4. InvestigationPanel — side panel with structured RCA output + follow-up chat
+5. Streaming response (SSE preferred)
 
 ---
 
@@ -186,26 +213,44 @@ Claude reaches this answer by connecting:
 
 ---
 
+## InvestigationContextService
+
+New service class responsible for aggregating all runtime context before Claude is called.
+
+Responsibilities:
+- gather current service states + metrics (GET /services)
+- gather active anomalies (GET /anomalies)
+- gather recent deployments with commit messages (GET /deployments)
+- gather recent commits (GET /commits)
+- gather dependency topology (GET /services/dependencies)
+- gather incident phase + timeline events (GET /timeline/events)
+- gather system status (GET /system/status)
+- transform all of the above into a structured AI-readable operational narrative
+
+This service runs BEFORE every Claude call. Claude never receives a cold context.
+
 ## Context Bundle for POST /investigate
 
 The endpoint must gather and send to Claude:
 
 ```json
 {
-  "question": "<user's question from chat>",
-  "services": [ /* GET /services — current status, metrics */ ],
-  "anomalies": [ /* GET /anomalies — raw metric facts */ ],
-  "recentDeployments": [ /* GET /deployments — last 5, includes commit messages */ ],
-  "recentCommits": [ /* GET /commits — last 10, includes commit messages */ ],
-  "timelineEvents": [ /* GET /timeline/events — chronological incident story */ ],
-  "systemStatus": { /* GET /system/status */ }
+  "triggeredByAnomaly": { /* the specific anomaly the user clicked Investigate on */ },
+  "question": "<user's question — or auto-generated: 'What caused this anomaly?'>",
+  "services": [ /* current status, metrics for all 5 services */ ],
+  "anomalies": [ /* all active anomalies — raw metric facts */ ],
+  "recentDeployments": [ /* last 5 deployments — includes commit messages */ ],
+  "recentCommits": [ /* last 10 commits — includes commit messages */ ],
+  "timelineEvents": [ /* chronological incident story up to current phase */ ],
+  "dependencies": [ /* service dependency edges */ ],
+  "systemStatus": { /* overall system health */ },
+  "incidentPhase": 0
 }
 ```
 
 **What NOT to send to Claude:**
-- GET /timeline/correlation/{id} — the correlation endpoint was stripped of rootCause
-  and causalChain fields precisely so Claude is not handed the answer. Do not include
-  correlation data in the investigation bundle.
+- GET /timeline/correlation/{id} — stripped of rootCause and causalChain on purpose.
+  Do not include correlation data. Claude must reason to the answer itself.
 
 ---
 
@@ -218,19 +263,51 @@ The system prompt must instruct Claude to:
 4. Explain the signal chain: what metric spiked first, on which service, when
 5. State confidence level — "likely" vs "confirmed"
 6. Be concise — this is a terminal panel, not an essay
+7. Structure the initial RCA response in this exact format (see below)
 
-The user-facing prompt message should be natural language:
-**"What caused this incident?"** or **"Investigate"**
+The initial question is auto-generated from the anomaly context:
+**"Investigate this anomaly: [anomalyType] on [serviceName] — [description]"**
+
+After the RCA, the chat opens for free-form follow-up questions.
+
+## Structured RCA Response Format
+
+Claude's initial response must follow this structure:
+
+```
+1. PROBABLE ROOT CAUSE
+   What most likely caused this — specific service, deployment, or config change
+
+2. AFFECTED SYSTEMS
+   Which services are impacted and their current state
+
+3. PROPAGATION PATH
+   How the failure spread — the dependency chain sequence
+
+4. SUPPORTING EVIDENCE
+   The specific metrics and signals that support the conclusion
+
+5. CORRELATED DEPLOYMENTS
+   Which recent deployments are temporally or causally linked
+
+6. RECOMMENDED NEXT INVESTIGATION
+   What the developer should look at next to confirm or dig deeper
+```
+
+This must NOT feel like a generic chatbot response.
+It should feel like an automated incident report generated by an intelligent system.
 
 ---
 
-## UI — AI Chat Panel
+## UI — Investigation Panel
 
-- Add a new panel below or beside the timeline (or as a new sidebar section)
-- Single "Investigate" button that triggers the analysis
-- Streaming text output with typing effect (SSE preferred, chunked transfer acceptable)
-- Highlight affected service names in the output (cyan for the root cause service)
-- Show a "thinking..." state while Claude is processing
+- "Investigate" button on EACH anomaly card in AnomalyFeed (not a single dashboard button)
+- Clicking opens InvestigationPanel as a side panel or modal
+- Panel shows: anomaly context at top, then streaming RCA output below
+- Streaming text with typing effect (SSE preferred)
+- After RCA completes: follow-up chat input appears for deeper questions
+- Highlight service names in the RCA text (cyan = root cause, orange = affected)
+- Show "Analyzing runtime context..." state while Claude is processing
 
 ---
 
