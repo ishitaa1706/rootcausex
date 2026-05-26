@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import MetricsCard from './MetricsCard'
-import DependencyGraph from './DependencyGraph'
-import SystemStatus from './SystemStatus'
-import { services as mockServices } from '../data/mockData'
-import { api } from '../api/client'
+import MetricsCard      from './MetricsCard'
+import DependencyGraph  from './DependencyGraph'
+import SystemStatus     from './SystemStatus'
+import IncidentControls from './IncidentControls'
+import AnomalyFeed      from './AnomalyFeed'
 
 function SectionLabel({ text }) {
   return (
@@ -20,41 +19,48 @@ function SectionLabel({ text }) {
   )
 }
 
-export default function Dashboard() {
-  // Start with mock data so the UI is instantly visible.
-  // Swap to live API data once the backend responds.
-  const [services, setServices] = useState(mockServices)
-  const [liveData, setLiveData] = useState(false)
-
-  useEffect(() => {
-    api.getServices()
-      .then(data => { setServices(data); setLiveData(true) })
-      .catch(() => { /* backend offline — mock data stays */ })
-  }, [])
-
+export default function Dashboard({
+  services,
+  systemStatus,
+  anomalies,
+  incidentActive,
+  onTrigger,
+  onReset,
+}) {
   return (
     <div
       className="flex-1 overflow-auto px-6 py-5"
       style={{ scrollbarWidth: 'thin' }}
     >
-      {/* Page heading */}
+      {/* Page heading + incident controls */}
       <motion.div
         initial={{ opacity: 0, x: -16 }}
         animate={{ opacity: 1, x: 0  }}
         transition={{ duration: 0.38 }}
-        className="mb-5"
+        className="flex items-center justify-between mb-5"
       >
-        <h1 className="text-xl font-bold mb-1" style={{ color: '#e2e8f0' }}>
-          Runtime Dashboard
-        </h1>
-        <p className="text-sm font-mono" style={{ color: '#475569' }}>
-          Live production environment&nbsp;·&nbsp;5 services monitored&nbsp;·&nbsp;
-          {liveData ? 'connected to backend' : 'mock runtime data'}
-        </p>
+        <div>
+          <h1 className="text-xl font-bold mb-1" style={{ color: '#e2e8f0' }}>
+            Runtime Dashboard
+          </h1>
+          <p className="text-sm font-mono" style={{ color: '#475569' }}>
+            Live production environment&nbsp;·&nbsp;5 services monitored&nbsp;·&nbsp;
+            {incidentActive ? 'incident simulation active' : 'connected to backend'}
+          </p>
+        </div>
+
+        <IncidentControls
+          incidentActive={incidentActive}
+          onTrigger={onTrigger}
+          onReset={onReset}
+        />
       </motion.div>
 
       {/* System status banner */}
-      <SystemStatus />
+      <SystemStatus systemStatus={systemStatus} />
+
+      {/* Anomaly feed — visible only during incident */}
+      <AnomalyFeed anomalies={anomalies} />
 
       {/* Service health cards */}
       <section className="mb-6">
@@ -69,7 +75,7 @@ export default function Dashboard() {
       {/* Dependency graph */}
       <section>
         <SectionLabel text="Service Topology" />
-        <DependencyGraph />
+        <DependencyGraph services={services} />
       </section>
     </div>
   )

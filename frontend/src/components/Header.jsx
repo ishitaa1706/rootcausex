@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { Bell, Settings, Wifi, ChevronRight } from 'lucide-react'
-import { systemStatus } from '../data/mockData'
 
 const statusMeta = {
   healthy:  { color: '#22c55e', label: 'ALL SYSTEMS NOMINAL' },
@@ -8,8 +7,9 @@ const statusMeta = {
   incident: { color: '#ef4444', label: 'ACTIVE INCIDENT'    },
 }
 
-export default function Header() {
-  const meta = statusMeta[systemStatus.status] ?? statusMeta.healthy
+export default function Header({ systemStatus }) {
+  const meta = statusMeta[systemStatus?.status] ?? statusMeta.healthy
+  const ss   = systemStatus ?? { servicesHealthy: 5, servicesTotal: 5, p99Latency: 120 }
 
   return (
     <motion.header
@@ -32,33 +32,40 @@ export default function Header() {
         <span className="text-sm text-[#334155] font-mono">runtime intelligence</span>
       </div>
 
-      {/* Center — system status */}
+      {/* Center — live system status */}
       <div className="flex items-center gap-3">
-        <div
+        <motion.div
+          key={ss.status}
+          animate={{ opacity: [0.6, 1] }}
+          transition={{ duration: 0.4 }}
           className="w-2 h-2 rounded-full pulse-dot"
           style={{ background: meta.color, boxShadow: `0 0 7px ${meta.color}` }}
         />
-        <span
+        <motion.span
+          key={`label-${ss.status}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           className="text-xs font-bold tracking-widest font-mono"
           style={{ color: meta.color }}
         >
           {meta.label}
+        </motion.span>
+        <span className="text-[#1e3a5f] mx-1">·</span>
+        <span className="text-sm text-[#475569] font-mono">
+          {ss.servicesHealthy}/{ss.servicesTotal} services
         </span>
         <span className="text-[#1e3a5f] mx-1">·</span>
         <span className="text-sm text-[#475569] font-mono">
-          {systemStatus.servicesHealthy}/{systemStatus.servicesTotal} services
-        </span>
-        <span className="text-[#1e3a5f] mx-1">·</span>
-        <span className="text-sm text-[#475569] font-mono">
-          p99 {systemStatus.p99Latency}ms
+          p99 {ss.p99Latency}ms
         </span>
       </div>
 
       {/* Right — actions */}
       <div className="flex items-center gap-2">
-        <span className="flex items-center gap-1.5 text-sm text-[#22c55e] font-mono mr-1">
+        <span className="flex items-center gap-1.5 text-sm font-mono mr-1"
+          style={{ color: ss.status === 'healthy' ? '#22c55e' : '#ef4444' }}>
           <Wifi size={13} />
-          LIVE
+          {ss.status === 'healthy' ? 'LIVE' : 'INCIDENT'}
         </span>
         {[Bell, Settings].map((Icon, i) => (
           <button

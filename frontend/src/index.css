@@ -96,3 +96,15 @@ body {
 }
 
 .react-flow__edge-path { stroke-width: 1.5; }
+
+/* ─── Incident card animations ─────────────────────────────────────────────── */
+@keyframes card-critical-pulse {
+  0%, 100% { box-shadow: 0 0 22px rgba(239,68,68,0.15), 0 0 0 1px rgba(239,68,68,0.4); }
+  50%       { box-shadow: 0 0 50px rgba(239,68,68,0.42), 0 0 0 1px rgba(239,68,68,0.7); }
+}
+@keyframes card-degraded-pulse {
+  0%, 100% { box-shadow: 0 0 22px rgba(245,158,11,0.12), 0 0 0 1px rgba(245,158,11,0.35); }
+  50%       { box-shadow: 0 0 38px rgba(245,158,11,0.32), 0 0 0 1px rgba(245,158,11,0.6); }
+}
+.card-critical { animation: card-critical-pulse 1.4s ease-in-out infinite; }
+.card-degraded { animation: card-degraded-pulse 2.2s ease-in-out infinite; }

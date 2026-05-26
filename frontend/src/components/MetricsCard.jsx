@@ -3,26 +3,27 @@ import { Clock, AlertCircle, RefreshCw, Zap, TrendingUp, TrendingDown, Minus } f
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const STATUS = {
-  healthy:  { color: '#22c55e', border: 'rgba(34,197,94,0.25)',   bg: 'rgba(34,197,94,0.07)',   glow: 'rgba(34,197,94,0.12)',   label: 'HEALTHY'  },
-  degraded: { color: '#f59e0b', border: 'rgba(245,158,11,0.25)',  bg: 'rgba(245,158,11,0.07)',  glow: 'rgba(245,158,11,0.12)',  label: 'DEGRADED' },
-  critical: { color: '#ef4444', border: 'rgba(239,68,68,0.25)',   bg: 'rgba(239,68,68,0.07)',   glow: 'rgba(239,68,68,0.12)',   label: 'CRITICAL' },
+  healthy:  { color: '#22c55e', border: 'rgba(34,197,94,0.25)',   bg: 'rgba(34,197,94,0.07)',   label: 'HEALTHY'  },
+  degraded: { color: '#f59e0b', border: 'rgba(245,158,11,0.4)',   bg: 'rgba(245,158,11,0.09)',  label: 'DEGRADED' },
+  critical: { color: '#ef4444', border: 'rgba(239,68,68,0.5)',    bg: 'rgba(239,68,68,0.1)',    label: 'CRITICAL' },
 }
 
 function TrendIcon({ trend }) {
-  if (trend === 'up')   return <TrendingUp   size={13} color="#f59e0b" />
+  if (trend === 'up')   return <TrendingUp   size={13} color="#ef4444" />
   if (trend === 'down') return <TrendingDown size={13} color="#22c55e" />
   return                       <Minus        size={13} color="#334155" />
 }
 
-function MetricRow({ icon: Icon, label, value, unit, trend }) {
+function MetricRow({ icon: Icon, label, value, unit, trend, alert }) {
   return (
     <div className="flex items-center justify-between py-[6px]">
-      <div className="flex items-center gap-2" style={{ color: '#64748b' }}>
+      <div className="flex items-center gap-2" style={{ color: alert ? '#f59e0b' : '#64748b' }}>
         <Icon size={13} />
         <span className="text-xs font-mono">{label}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="text-sm font-semibold font-mono" style={{ color: '#cbd5e1' }}>
+        <span className="text-sm font-semibold font-mono"
+          style={{ color: alert ? '#fbbf24' : '#cbd5e1' }}>
           {value}
         </span>
         {unit && (
@@ -38,7 +39,10 @@ function MetricRow({ icon: Icon, label, value, unit, trend }) {
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 export default function MetricsCard({ service, index }) {
-  const s = STATUS[service.status] ?? STATUS.healthy
+  const s          = STATUS[service.status] ?? STATUS.healthy
+  const isCritical = service.status === 'critical'
+  const isDegraded = service.status === 'degraded'
+  const isUnhealthy = isCritical || isDegraded
 
   return (
     <motion.div
@@ -46,12 +50,16 @@ export default function MetricsCard({ service, index }) {
       animate={{ opacity: 1, y: 0  }}
       transition={{ duration: 0.45, delay: index * 0.07, ease: 'easeOut' }}
       whileHover={{ scale: 1.025, transition: { duration: 0.18 } }}
-      className="rounded-xl p-4 cursor-pointer select-none"
+      className={`rounded-xl p-4 cursor-pointer select-none relative ${
+        isCritical ? 'card-critical' :
+        isDegraded ? 'card-degraded' : ''
+      }`}
       style={{
         background: 'rgba(10, 18, 38, 0.9)',
         backdropFilter: 'blur(14px)',
         border: `1px solid ${s.border}`,
-        boxShadow: `0 0 22px ${s.glow}`,
+        // Static shadow for healthy; animation handles unhealthy via CSS
+        ...(!isUnhealthy && { boxShadow: '0 0 22px rgba(34,197,94,0.1)' }),
       }}
     >
       {/* Header row */}
@@ -71,12 +79,16 @@ export default function MetricsCard({ service, index }) {
           </span>
         </div>
 
-        <span
+        <motion.span
+          key={service.status}
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.25 }}
           className="text-[10px] font-bold tracking-[0.1em] px-2 py-0.5 rounded-full font-mono mt-0.5"
           style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}` }}
         >
           {s.label}
-        </span>
+        </motion.span>
       </div>
 
       {/* Divider */}
@@ -90,6 +102,7 @@ export default function MetricsCard({ service, index }) {
           value={service.metrics.latency.current}
           unit={service.metrics.latency.unit}
           trend={service.metrics.latency.trend}
+          alert={service.metrics.latency.current > 200}
         />
         <MetricRow
           icon={AlertCircle}
@@ -97,6 +110,7 @@ export default function MetricsCard({ service, index }) {
           value={`${service.metrics.errorRate.current}%`}
           unit=""
           trend={service.metrics.errorRate.trend}
+          alert={service.metrics.errorRate.current > 2}
         />
         <MetricRow
           icon={RefreshCw}
@@ -104,6 +118,7 @@ export default function MetricsCard({ service, index }) {
           value={service.metrics.retries.current}
           unit={service.metrics.retries.unit}
           trend={service.metrics.retries.trend}
+          alert={service.metrics.retries.current > 30}
         />
         <MetricRow
           icon={Zap}
