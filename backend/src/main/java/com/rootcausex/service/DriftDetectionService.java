@@ -49,15 +49,13 @@ public class DriftDetectionService {
                 "anm-001", t1, "warning",
                 "auth", "Auth Service",
                 "RETRY_AMPLIFICATION",
-                "Retry rate 750% above baseline — 85/min vs baseline 10/min. " +
-                "Backoff policy introduced in v2.1 amplifying under peak load."
+                "Retry rate: 85/min (baseline: 10/min, +750%)"
             ));
             list.add(new Anomaly(
                 "anm-002", t1, "warning",
                 "auth", "Auth Service",
                 "LATENCY_DRIFT",
-                "p99 latency drifted 42ms → 180ms (+329%). " +
-                "Correlated with auth-service v2.1 deployment 2h ago (commit a1b2c3d)."
+                "p99 latency: 42ms → 180ms (+329% above baseline)"
             ));
         }
 
@@ -67,22 +65,19 @@ public class DriftDetectionService {
                 "anm-003", t1, "critical",
                 "auth", "Auth Service",
                 "ERROR_SPIKE",
-                "Error rate critical: 12.8% (baseline: 0.10%). " +
-                "Auth producing retry storms — downstream services absorbing overflow."
+                "Error rate: 12.8% (baseline: 0.10%, +12,700%)"
             ));
             list.add(new Anomaly(
                 "anm-004", t2, "warning",
                 "payment", "Payment Service",
                 "DEPENDENCY_INSTABILITY",
-                "Upstream auth-service instability propagating via JWT validate dependency. " +
-                "Payment latency amplifying as auth retries queue."
+                "Auth dependency call latency: 1,240ms p99. Dependency error rate: 34%"
             ));
             list.add(new Anomaly(
                 "anm-005", t2, "warning",
                 "payment", "Payment Service",
                 "LATENCY_DRIFT",
-                "Payment p99 latency spiked 115ms → 980ms (+752%). " +
-                "Queue contention visible — downstream order processing slowing."
+                "p99 latency: 115ms → 980ms (+752% above baseline)"
             ));
         }
 
@@ -92,22 +87,20 @@ public class DriftDetectionService {
                 "anm-006", t2, "critical",
                 "payment", "Payment Service",
                 "RETRY_AMPLIFICATION",
-                "Payment retrying auth calls at 280x/min. " +
-                "Exponential amplification — queue saturation imminent."
+                "Retry rate against auth dependency: 280/min (baseline: 12/min)"
             ));
             list.add(new Anomaly(
                 "anm-007", t2, "critical",
                 "payment", "Payment Service",
                 "THROUGHPUT_COLLAPSE",
-                "Throughput collapsed 350 → 45 req/s (−87%). " +
-                "Service approaching failure threshold."
+                "Throughput: 350 → 45 req/s (−87%)"
             ));
             list.add(new Anomaly(
                 "anm-008", t3, "warning",
                 "order", "Order Service",
                 "DEPENDENCY_INSTABILITY",
-                "Order receiving degraded responses from 2 upstream dependencies " +
-                "(auth: CRITICAL, payment: CRITICAL). Cascading failure in progress."
+                "Upstream status — auth-service: CRITICAL, payment-service: CRITICAL. " +
+                "Dependency timeout rate: 68%"
             ));
         }
 
@@ -117,15 +110,14 @@ public class DriftDetectionService {
                 "anm-009", t3, "critical",
                 "order", "Order Service",
                 "ERROR_SPIKE",
-                "Order service error rate critical: 18.2%. " +
-                "Full cascade from auth retry amplification — all upstream paths degraded."
+                "Error rate: 18.2% (baseline: 0.12%). All upstream health checks failing."
             ));
             list.add(new Anomaly(
                 "anm-010", t3, "critical",
                 "order", "Order Service",
                 "LATENCY_DRIFT",
-                "Order latency 92ms → 920ms (+900%). Complete dependency chain failure. " +
-                "Root cause: auth-service v2.1 retry policy under peak load."
+                "p99 latency: 92ms → 920ms (+900% above baseline). " +
+                "94% of requests timing out at dependency layer."
             ));
         }
 
