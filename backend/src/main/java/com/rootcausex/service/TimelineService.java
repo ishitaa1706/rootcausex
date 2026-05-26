@@ -74,22 +74,20 @@ public class TimelineService {
     public Optional<Map<String, Object>> getCorrelation(int deploymentId) {
         return switch (deploymentId) {
             case 1 -> Optional.of(Map.of(
-                "deploymentId",    1,
-                "service",         "auth",
-                "version",         "v2.1",
-                "affectedServices", List.of("auth", "payment", "order"),
-                "relatedAnomalies", List.of("anm-001", "anm-002", "anm-003"),
-                "causalChain",     "auth → payment → order",
-                "rootCause",       "Exponential backoff retry policy amplifies under peak load"
+                "deploymentId",     1,
+                "service",          "auth",
+                "version",          "v2.1",
+                "deployedAt",       "6:00 PM",
+                "anomalyOnsetMins", 8,
+                "relatedAnomalies", List.of("anm-001", "anm-002", "anm-003")
             ));
             case 2 -> Optional.of(Map.of(
-                "deploymentId",    2,
-                "service",         "payment",
-                "version",         "v1.8",
-                "affectedServices", List.of("payment", "order"),
-                "relatedAnomalies", List.of("anm-004", "anm-005", "anm-006", "anm-007"),
-                "causalChain",     "payment → order",
-                "rootCause",       "Payment service degraded by upstream auth instability"
+                "deploymentId",     2,
+                "service",          "payment",
+                "version",          "v1.8",
+                "deployedAt",       "6:02 PM",
+                "anomalyOnsetMins", 13,
+                "relatedAnomalies", List.of("anm-004", "anm-005", "anm-006", "anm-007")
             ));
             default -> Optional.empty();
         };
@@ -135,22 +133,19 @@ public class TimelineService {
         new TimelineEvent(
             "evt-003", "6:08 PM", "DRIFT_DETECTED", "warning", 1,
             "Retry amplification detected — auth-service",
-            "Retry rate 85/min (baseline: 10/min, +750%). " +
-            "v2.1 backoff policy amplifying under peak traffic load.",
+            "Retry rate: 85/min (baseline: 10/min, +750%)",
             List.of("auth"), "1", "anm-001"
         ),
         new TimelineEvent(
             "evt-004", "6:10 PM", "ANOMALY", "warning", 1,
             "Latency drift — auth-service",
-            "p99 latency 42ms → 180ms (+329%). " +
-            "Correlated with retry amplification onset.",
+            "p99 latency: 42ms → 180ms (+329% above baseline)",
             List.of("auth"), null, "anm-002"
         ),
         new TimelineEvent(
             "evt-005", "6:12 PM", "SERVICE_DEGRADED", "warning", 1,
             "auth-service → DEGRADED",
-            "Service health transitioned to DEGRADED. " +
-            "Retry storms consuming available thread pool capacity.",
+            "Service health transitioned to DEGRADED. Thread pool utilization: 94%",
             List.of("auth"), null, null
         ),
 
@@ -158,47 +153,41 @@ public class TimelineService {
         new TimelineEvent(
             "evt-006", "6:15 PM", "ANOMALY", "warning", 2,
             "Latency drift — payment-service",
-            "payment p99 latency 115ms → 980ms (+752%). " +
-            "Upstream auth instability propagating via JWT validate dependency.",
+            "p99 latency: 115ms → 980ms (+752% above baseline). " +
+            "Auth dependency call failures: 34%",
             List.of("auth", "payment"), null, "anm-005"
         ),
         new TimelineEvent(
             "evt-007", "6:17 PM", "SERVICE_CRITICAL", "critical", 2,
             "auth-service → CRITICAL",
-            "Error rate 12.8% (baseline: 0.10%). " +
-            "auth-service producing upstream retry storms at 320/min.",
+            "Error rate: 12.8% (baseline: 0.10%). Outbound retry rate: 320/min",
             List.of("auth"), null, "anm-003"
         ),
         new TimelineEvent(
             "evt-008", "6:18 PM", "SERVICE_DEGRADED", "warning", 2,
             "payment-service → DEGRADED",
-            "Queue contention from auth retries. " +
-            "Throughput reduced 350 → 180 req/s. " +
-            "Downstream order-service beginning to slow.",
+            "Throughput: 350 → 180 req/s (−49%). Auth dependency timeout rate: 28%",
             List.of("payment"), null, "anm-004"
         ),
 
         // ── Phase 3 — Payment critical, order degraded ────────────────────────
         new TimelineEvent(
             "evt-009", "6:20 PM", "CASCADE_PROPAGATION", "critical", 3,
-            "Cascade propagation: auth → payment → order",
-            "Retry amplification cascade confirmed. " +
-            "Failure propagating through dependency chain. " +
-            "order-service receiving degraded responses from 2 upstream dependencies.",
+            "Multi-service degradation — auth, payment, order",
+            "order-service receiving degraded responses from 2 upstream dependencies. " +
+            "Auth dependency: CRITICAL, payment dependency: CRITICAL",
             List.of("auth", "payment", "order"), null, "anm-008"
         ),
         new TimelineEvent(
             "evt-010", "6:22 PM", "SERVICE_CRITICAL", "critical", 3,
             "payment-service → CRITICAL",
-            "Throughput collapsed 350 → 45 req/s (−87%). " +
-            "Retrying auth at 280/min. Queue saturation.",
+            "Throughput: 350 → 45 req/s (−87%). Retry rate against auth: 280/min",
             List.of("payment"), null, "anm-007"
         ),
         new TimelineEvent(
             "evt-011", "6:25 PM", "SERVICE_DEGRADED", "warning", 3,
             "order-service → DEGRADED",
-            "Cascading instability from auth + payment. " +
-            "Latency 92ms → 450ms. Processing queue backing up.",
+            "Latency: 92ms → 450ms (+389%). Upstream health checks: 2/2 failing",
             List.of("order"), null, null
         ),
 
@@ -206,16 +195,15 @@ public class TimelineService {
         new TimelineEvent(
             "evt-012", "6:28 PM", "SERVICE_CRITICAL", "critical", 4,
             "order-service → CRITICAL",
-            "Full cascade complete. Error rate 18.2%. " +
-            "Latency 920ms. All upstream dependencies in CRITICAL state.",
+            "Error rate: 18.2% (baseline: 0.12%). Latency: 920ms. " +
+            "All upstream dependencies in CRITICAL state.",
             List.of("order"), null, "anm-009"
         ),
         new TimelineEvent(
             "evt-013", "6:28 PM", "CASCADE_PROPAGATION", "critical", 4,
             "Full dependency chain failure",
-            "Root cause: auth-service v2.1 retry amplification under peak load. " +
-            "Cascaded: auth → payment → order. " +
-            "Incident duration: ~28 minutes from deployment to full cascade.",
+            "auth, payment, order all CRITICAL simultaneously. " +
+            "Incident duration: ~28 minutes from first deployment to full cascade.",
             List.of("auth", "payment", "order"), "1", "anm-010"
         )
     );
