@@ -1,14 +1,14 @@
 # RootCauseX — Current Implementation State
 
 Last Updated:
-Phase 2 — Drift Detection (Frontend DONE · Backend DONE · AI NOT STARTED)
+Phase 3 — Runtime Context (Frontend DONE · Backend DONE · AI NOT STARTED)
 
 ---
 
 # Current Phase
 
 Phase:
-Phase 2 — Drift Detection & Incident Evolution
+Phase 3 — Runtime Context & Temporal Investigation
 
 Status:
 COMPLETE ✅ — Frontend done, Backend done, AI not started
@@ -18,106 +18,95 @@ COMPLETE ✅ — Frontend done, Backend done, AI not started
 # Completed Features
 
 ## Phase 1 — Runtime World ✅
-
-### Frontend
-- ✅ Vite + React scaffold, Tailwind CSS v4, Framer Motion, React Flow, Lucide React
-- ✅ Dark cinematic UI (glassmorphism, glow effects, smooth animations)
-- ✅ Sidebar, Header, SystemStatus banner, MetricsCard × 5, DependencyGraph, Dashboard
-- ✅ API client (src/api/client.js)
-- ✅ Mock runtime data fallback
-
-### Backend
-- ✅ Spring Boot 3.3.5 (Maven, Java 17), CORS config
-- ✅ Model layer (7 Java records)
-- ✅ MockDataRepository, RuntimeDataService
-- ✅ GET /services, /services/{id}, /services/dependencies
-- ✅ GET /metrics, /metrics/{serviceId}
-- ✅ GET /deployments, /deployments/{serviceId}
-- ✅ GET /commits, /commits/{serviceId}
-- ✅ GET /system/status
-
----
+- Vite + React scaffold, Tailwind v4, Framer Motion, React Flow
+- Dark cinematic UI — glassmorphism, glow effects, animations
+- Sidebar, Header, SystemStatus, MetricsCard × 5, DependencyGraph, Dashboard
+- Spring Boot 3.3.5 (Maven, Java 17), CORS
+- GET /services, /metrics, /deployments, /commits, /system/status
 
 ## Phase 2 — Drift Detection ✅
+- IncidentStateManager — time-based cascade engine (4 phases)
+- DriftDetectionService — anomaly generation per phase
+- POST /incident/trigger, POST /incident/reset, GET /incident/status, GET /anomalies
+- IncidentControls.jsx — trigger/reset buttons
+- AnomalyFeed.jsx — live anomaly alert feed
+- App.jsx — lifted state, 3s polling during incident
+- DependencyGraph — reactive edge/node colors (cyan→orange→red)
+- MetricsCard — pulsing CSS animations for degraded/critical
+
+## Phase 3 — Runtime Context ✅
 
 ### Backend — new
-- ✅ model/Anomaly.java (id, timestamp, severity, affectedService, serviceName, anomalyType, description)
-- ✅ model/IncidentStatus.java (active, phase, phaseIndex, triggeredAt, elapsedSeconds, affectedServices)
-- ✅ service/IncidentStateManager.java — core time-based incident simulation engine
-- ✅ service/DriftDetectionService.java — generates anomaly list based on incident phase
-- ✅ controller/IncidentController.java — POST /incident/trigger, POST /incident/reset, GET /incident/status
-- ✅ controller/AnomalyController.java — GET /anomalies
-- ✅ service/RuntimeDataService.java updated — routes through IncidentStateManager
+- ✅ model/TimelineEvent.java (id, timestamp, eventType, severity, phase, title, description, affectedServices, relatedDeployment, relatedAnomaly)
+- ✅ model/PlaybackState.java (phase, phaseName, phaseDescription, services, systemStatus, affectedServices, activeEventIds)
+- ✅ service/TimelineService.java — 13 chronological incident events + playback state builder + deployment correlation
+- ✅ controller/TimelineController.java — 3 endpoints
+- ✅ service/IncidentStateManager.java — added getServicesForPhase() + getSystemStatusForPhase() (phase-based, used by timeline playback)
 
 ### Backend — new endpoints
-- ✅ POST /incident/trigger
-- ✅ POST /incident/reset
-- ✅ GET  /incident/status
-- ✅ GET  /anomalies
+- ✅ GET /timeline/events
+- ✅ GET /timeline/playback-state/{phase}
+- ✅ GET /timeline/correlation/{deploymentId}
 
-### Frontend — new components
-- ✅ components/IncidentControls.jsx — trigger/reset buttons with glow animations
-- ✅ components/AnomalyFeed.jsx — live scrolling anomaly alert feed
+### Frontend — new
+- ✅ components/TimelinePanel.jsx — full incident timeline with playback controls
 
-### Frontend — updated components
-- ✅ App.jsx — lifted state (services, systemStatus, anomalies, incidentActive), polling (3s during incident)
-- ✅ Header.jsx — accepts systemStatus prop, live status/color transitions
-- ✅ SystemStatus.jsx — accepts systemStatus prop, animated banner transitions
-- ✅ Dashboard.jsx — accepts all props, renders IncidentControls + AnomalyFeed
-- ✅ DependencyGraph.jsx — accepts services prop, reactive edge/node colors (cyan→orange→red)
-- ✅ MetricsCard.jsx — pulsing CSS animations for degraded/critical, alert metric highlighting
-- ✅ api/client.js — added triggerIncident, resetIncident, getIncidentStatus, getAnomalies
-- ✅ index.css — card-critical and card-degraded pulse animations
+### Frontend — updated
+- ✅ App.jsx — added playback state (playbackPhase, playbackServices, playbackSystemStatus), polling pauses during playback
+- ✅ Dashboard.jsx — renders TimelinePanel, passes playbackPhase + onPlaybackPhaseChange
+- ✅ api/client.js — added getTimelineEvents, getPlaybackState, getCorrelation
+- ✅ index.css — added timeline-slider CSS for dark theme
 
 ---
 
 ## AI — NOT STARTED ❌
-
-- [ ] Claude integration
-- [ ] Runtime reasoning prompts
-- [ ] Investigation flow
-- [ ] Streaming responses
-
----
-
-# Incident Story (implemented)
-
-Primary incident:
-auth-service v2.1 introduced exponential backoff retry policy.
-Under peak load this causes retry amplification.
-
-Timeline (seconds since trigger):
-- 0–20s  → Phase 1: auth DEGRADED (retries 85/min, latency 180ms)
-- 20–40s → Phase 2: auth CRITICAL, payment DEGRADED (latency 980ms)
-- 40–60s → Phase 3: auth CRITICAL, payment CRITICAL, order DEGRADED
-- 60s+   → Phase 4: full cascade (all three CRITICAL)
-
-Anomaly types generated:
-- RETRY_AMPLIFICATION
-- LATENCY_DRIFT
-- ERROR_SPIKE
-- THROUGHPUT_COLLAPSE
-- DEPENDENCY_INSTABILITY
+- [ ] Claude API integration
+- [ ] POST /investigate endpoint
+- [ ] Runtime reasoning prompt engineering
+- [ ] AI chat panel
+- [ ] Streaming response UI
 
 ---
 
-# Current API Surface
+# Timeline Events (13 events across 5 phases)
 
-| Endpoint                    | Phase | Status   |
-|-----------------------------|-------|----------|
-| GET  /services              | 1     | ✅ DONE  |
-| GET  /services/{id}         | 1     | ✅ DONE  |
-| GET  /services/dependencies | 1     | ✅ DONE  |
-| GET  /metrics               | 1     | ✅ DONE  |
-| GET  /metrics/{serviceId}   | 1     | ✅ DONE  |
-| GET  /deployments           | 1     | ✅ DONE  |
-| GET  /commits               | 1     | ✅ DONE  |
-| GET  /system/status         | 1     | ✅ DONE  |
-| POST /incident/trigger      | 2     | ✅ DONE  |
-| POST /incident/reset        | 2     | ✅ DONE  |
-| GET  /incident/status       | 2     | ✅ DONE  |
-| GET  /anomalies             | 2     | ✅ DONE  |
-| POST /investigate           | 4     | NOT BUILT |
+| Phase | Time    | Event Type          | Title                              |
+|-------|---------|---------------------|------------------------------------|
+| 0     | 6:00 PM | DEPLOYMENT          | auth-service v2.1 deployed         |
+| 0     | 6:02 PM | DEPLOYMENT          | payment-service v1.8 deployed      |
+| 1     | 6:08 PM | DRIFT_DETECTED      | Retry amplification detected       |
+| 1     | 6:10 PM | ANOMALY             | Latency drift — auth-service       |
+| 1     | 6:12 PM | SERVICE_DEGRADED    | auth-service → DEGRADED            |
+| 2     | 6:15 PM | ANOMALY             | Latency drift — payment-service    |
+| 2     | 6:17 PM | SERVICE_CRITICAL    | auth-service → CRITICAL            |
+| 2     | 6:18 PM | SERVICE_DEGRADED    | payment-service → DEGRADED         |
+| 3     | 6:20 PM | CASCADE_PROPAGATION | Cascade: auth → payment → order    |
+| 3     | 6:22 PM | SERVICE_CRITICAL    | payment-service → CRITICAL         |
+| 3     | 6:25 PM | SERVICE_DEGRADED    | order-service → DEGRADED           |
+| 4     | 6:28 PM | SERVICE_CRITICAL    | order-service → CRITICAL           |
+| 4     | 6:28 PM | CASCADE_PROPAGATION | Full dependency chain failure      |
+
+---
+
+# Full API Surface
+
+| Endpoint                            | Phase | Status    |
+|-------------------------------------|-------|-----------|
+| GET  /services                      | 1     | ✅ DONE   |
+| GET  /services/{id}                 | 1     | ✅ DONE   |
+| GET  /services/dependencies         | 1     | ✅ DONE   |
+| GET  /metrics                       | 1     | ✅ DONE   |
+| GET  /deployments                   | 1     | ✅ DONE   |
+| GET  /commits                       | 1     | ✅ DONE   |
+| GET  /system/status                 | 1     | ✅ DONE   |
+| POST /incident/trigger              | 2     | ✅ DONE   |
+| POST /incident/reset                | 2     | ✅ DONE   |
+| GET  /incident/status               | 2     | ✅ DONE   |
+| GET  /anomalies                     | 2     | ✅ DONE   |
+| GET  /timeline/events               | 3     | ✅ DONE   |
+| GET  /timeline/playback-state/{p}   | 3     | ✅ DONE   |
+| GET  /timeline/correlation/{id}     | 3     | ✅ DONE   |
+| POST /investigate                   | 4     | NOT BUILT |
 
 ---
 
@@ -125,55 +114,35 @@ Anomaly types generated:
 
 ## Backend
 ```bash
-cd backend
-mvn spring-boot:run
+cd backend && mvn spring-boot:run
 ```
 → http://localhost:8080
 
 ## Frontend
 ```bash
-cd frontend
-npm run dev
+cd frontend && npm run dev
 ```
 → http://localhost:5173
 
 ---
 
-# Known Issues
+# Next — Phase 4: AI Investigation
 
-- None (backend compiles clean)
+1. POST /investigate — gather runtime context bundle → Claude API
+2. Build structured investigation prompt (services + anomalies + commits + timeline)
+3. AI chat panel in frontend
+4. Streaming response (SSE or chunked)
+5. Root-cause explanation output
 
----
-
-# Next Immediate Goal
-
-Phase 3 — Runtime Context:
-
-1. Timeline panel showing deployment/commit events
-2. Incident timeline (events annotated with elapsed time)
-3. Chronology view: deployments + commits + anomalies on a single axis
-4. "What changed?" view correlated to incident start
-
-Phase 4 — AI Investigation:
-
-1. POST /investigate endpoint (build context bundle → Claude API)
-2. AI chat panel in frontend
-3. Runtime reasoning prompt engineering
-4. Structured root-cause explanation output
+Phase 4 is the **money moment** of the demo.
+The AI should say: "auth-service v2.1 retry policy is the likely root cause — commit a1b2c3d deployed 2h ago."
 
 ---
 
 # Instructions For AI Agents
 
 Before implementing anything:
-
-1. Read:
-- docs/rootcausex-context.md
-- docs/current-state.md
-- docs/claude-rules.md
-
-2. Understand current implementation progress and existing architecture.
-
-3. DO NOT rebuild existing functionality or overengineer.
-
-4. ALWAYS keep implementation modular and prioritize visible outcomes.
+1. Read: docs/rootcausex-context.md, docs/current-state.md, docs/claude-rules.md
+2. Understand current progress and existing architecture
+3. DO NOT rebuild existing functionality or overengineer
+4. ALWAYS keep implementation modular and prioritize visible outcomes

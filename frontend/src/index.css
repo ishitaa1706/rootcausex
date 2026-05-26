@@ -108,3 +108,34 @@ body {
 }
 .card-critical { animation: card-critical-pulse 1.4s ease-in-out infinite; }
 .card-degraded { animation: card-degraded-pulse 2.2s ease-in-out infinite; }
+
+/* ─── Timeline playback slider ──────────────────────────────────────────────── */
+.timeline-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(56,189,248,0.12);
+  outline: none;
+  cursor: pointer;
+}
+.timeline-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: currentColor;
+  cursor: pointer;
+  border: 2px solid rgba(3,9,22,0.9);
+  box-shadow: 0 0 8px currentColor;
+}
+.timeline-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: currentColor;
+  cursor: pointer;
+  border: 2px solid rgba(3,9,22,0.9);
+}

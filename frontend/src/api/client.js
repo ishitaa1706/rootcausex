@@ -47,4 +47,9 @@ export const api = {
 
   // Anomalies — Phase 2
   getAnomalies:            ()       => get('/anomalies'),
+
+  // Timeline — Phase 3
+  getTimelineEvents:       ()       => get('/timeline/events'),
+  getPlaybackState:        (phase)  => get(`/timeline/playback-state/${phase}`),
+  getCorrelation:          (deplId) => get(`/timeline/correlation/${deplId}`),
 }

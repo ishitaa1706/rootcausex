@@ -4,6 +4,7 @@ import DependencyGraph  from './DependencyGraph'
 import SystemStatus     from './SystemStatus'
 import IncidentControls from './IncidentControls'
 import AnomalyFeed      from './AnomalyFeed'
+import TimelinePanel    from './TimelinePanel'
 
 function SectionLabel({ text }) {
   return (
@@ -24,8 +25,10 @@ export default function Dashboard({
   systemStatus,
   anomalies,
   incidentActive,
+  playbackPhase,
   onTrigger,
   onReset,
+  onPlaybackPhaseChange,
 }) {
   return (
     <div
@@ -45,7 +48,11 @@ export default function Dashboard({
           </h1>
           <p className="text-sm font-mono" style={{ color: '#475569' }}>
             Live production environment&nbsp;·&nbsp;5 services monitored&nbsp;·&nbsp;
-            {incidentActive ? 'incident simulation active' : 'connected to backend'}
+            {playbackPhase !== null
+              ? `timeline replay — phase ${playbackPhase}`
+              : incidentActive
+                ? 'incident simulation active'
+                : 'connected to backend'}
           </p>
         </div>
 
@@ -59,8 +66,10 @@ export default function Dashboard({
       {/* System status banner */}
       <SystemStatus systemStatus={systemStatus} />
 
-      {/* Anomaly feed — visible only during incident */}
-      <AnomalyFeed anomalies={anomalies} />
+      {/* Anomaly feed — visible during incident or playback (phase > 0) */}
+      {(incidentActive || playbackPhase > 0) && anomalies.length > 0 && (
+        <AnomalyFeed anomalies={anomalies} />
+      )}
 
       {/* Service health cards */}
       <section className="mb-6">
@@ -73,9 +82,19 @@ export default function Dashboard({
       </section>
 
       {/* Dependency graph */}
-      <section>
+      <section className="mb-6">
         <SectionLabel text="Service Topology" />
         <DependencyGraph services={services} />
+      </section>
+
+      {/* Incident Timeline — Phase 3 */}
+      <section>
+        <SectionLabel text="Incident Timeline" />
+        <TimelinePanel
+          playbackPhase={playbackPhase}
+          incidentActive={incidentActive}
+          onPlaybackPhaseChange={onPlaybackPhaseChange}
+        />
       </section>
     </div>
   )
