@@ -86,19 +86,30 @@ public class IncidentStateManager {
         );
     }
 
-    // ── Live service data ─────────────────────────────────────────────────────
+    // ── Live service data (time-based) ───────────────────────────────────────
 
     public List<ServiceInfo> getCurrentServices() {
         if (!active) return repository.getServices();
-        int phase = currentPhase();
+        return getServicesForPhase(currentPhase());
+    }
+
+    public SystemStatus getCurrentSystemStatus() {
+        if (!active) return repository.getSystemStatus();
+        return getSystemStatusForPhase(currentPhase());
+    }
+
+    // ── Phase-based data (for timeline playback) ──────────────────────────────
+
+    public List<ServiceInfo> getServicesForPhase(int phase) {
+        if (phase == 0) return repository.getServices();
         return repository.getServices().stream()
             .map(s -> applyIncidentState(s, phase))
             .toList();
     }
 
-    public SystemStatus getCurrentSystemStatus() {
-        if (!active) return repository.getSystemStatus();
-        return switch (currentPhase()) {
+    public SystemStatus getSystemStatusForPhase(int phase) {
+        return switch (phase) {
+            case 0 -> repository.getSystemStatus();
             case 1 -> new SystemStatus("degraded", 1, 4, 5, 180.0,  3.2,  4580.0);
             case 2 -> new SystemStatus("incident", 1, 3, 5, 980.0,  8.4,  4270.0);
             case 3 -> new SystemStatus("incident", 1, 2, 5, 1800.0, 18.2, 3580.0);
