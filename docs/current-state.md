@@ -1,8 +1,7 @@
 # RootCauseX — Current Implementation State
 
 Last Updated:
-Phase 3 — Runtime Context (Frontend DONE · Backend DONE · AI NOT STARTED)
-Pre-Phase 4 cleanup: anomaly descriptions and timeline events trimmed to raw facts
+Phase 4 — AI Investigation Workflows (Frontend DONE · Backend DONE)
 
 ---
 
@@ -79,14 +78,34 @@ as raw facts so Claude genuinely adds value.
 In real production, monitoring systems (Prometheus, Datadog, CloudWatch) emit only
 raw metric values — they never know the "why". Our data model mirrors that correctly.
 
-## Phase 4 — AI Investigation Workflows ❌ NOT STARTED
-- [ ] InvestigationContextService.java — context aggregation service
-- [ ] InvestigationService.java — Claude API integration + prompt builder
-- [ ] InvestigationController.java — POST /investigate endpoint
-- [ ] InvestigationPanel.jsx — investigation side panel with streaming RCA output
-- [ ] AnomalyFeed.jsx — add "Investigate" button to each anomaly card
-- [ ] App.jsx — add investigatingAnomaly state
-- [ ] api/client.js — add postInvestigate function
+## Phase 4 — AI Investigation Workflows ✅
+
+### Backend — new
+- ✅ model/InvestigationRequest.java — record(anomalyId, timelineEventId)
+- ✅ model/InvestigationResponse.java — record(id, title, probableRootCause, affectedServices, propagationPath, supportingEvidence, recommendedActions, confidenceScore, reasoningSteps)
+- ✅ model/FollowUpRequest.java — record(investigationId, question)
+- ✅ model/FollowUpResponse.java — record(answer)
+- ✅ service/InvestigationContextService.java — aggregates full runtime context narrative
+- ✅ service/InvestigationPromptBuilder.java — builds forensic Claude prompts
+- ✅ service/AIInvestigationService.java — Claude API call + response parsing + follow-up context storage
+- ✅ controller/InvestigationController.java — POST /investigate, POST /investigate/follow-up
+- ✅ application.properties — anthropic.api.key, anthropic.model config
+
+### Backend — new endpoints
+- ✅ POST /investigate
+- ✅ POST /investigate/follow-up
+
+### Frontend — new
+- ✅ components/AIReasoningStream.jsx — animated sequential reasoning steps
+- ✅ components/InvestigationPanel.jsx — right-side investigation drawer with RCA + follow-up chat
+
+### Frontend — updated
+- ✅ components/AnomalyFeed.jsx — Investigate button on each anomaly card
+- ✅ components/TimelinePanel.jsx — Investigate button on active timeline events (non-deployment)
+- ✅ components/DependencyGraph.jsx — investigationPath prop highlights propagation path in purple
+- ✅ components/Dashboard.jsx — passes onInvestigate + investigationPath props
+- ✅ App.jsx — investigation state (investigationOpen, investigatingAnomaly, investigationPath), handlers
+- ✅ api/client.js — postInvestigate, postFollowUp
 
 ---
 
@@ -128,7 +147,8 @@ raw metric values — they never know the "why". Our data model mirrors that cor
 | GET  /timeline/events               | 3     | ✅ DONE   |
 | GET  /timeline/playback-state/{p}   | 3     | ✅ DONE   |
 | GET  /timeline/correlation/{id}     | 3     | ✅ DONE   |
-| POST /investigate                   | 4     | NOT BUILT |
+| POST /investigate                   | 4     | ✅ DONE   |
+| POST /investigate/follow-up         | 4     | ✅ DONE   |
 
 ---
 

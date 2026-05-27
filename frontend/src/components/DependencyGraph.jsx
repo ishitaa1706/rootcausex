@@ -29,8 +29,14 @@ const EDGE_STROKE = {
 
 // ─── Custom node ──────────────────────────────────────────────────────────────
 function ServiceNode({ data }) {
-  const c        = NODE_COLOR[data.status] ?? NODE_COLOR.healthy
-  const isBad    = data.status === 'degraded' || data.status === 'critical'
+  const c              = NODE_COLOR[data.status] ?? NODE_COLOR.healthy
+  const isBad          = data.status === 'degraded' || data.status === 'critical'
+  const isInvestigated = data.isInvestigated === true
+
+  const borderColor = isInvestigated ? 'rgba(168,85,247,0.7)' : `${c}40`
+  const shadowExtra = isInvestigated
+    ? ', 0 0 0 2px rgba(168,85,247,0.2), 0 0 24px rgba(168,85,247,0.3)'
+    : ''
 
   return (
     <div
@@ -38,8 +44,8 @@ function ServiceNode({ data }) {
       style={{
         minWidth: 130,
         background: 'rgba(8, 16, 36, 0.96)',
-        border: `1px solid ${c}40`,
-        boxShadow: `0 0 ${isBad ? 28 : 18}px ${c}${isBad ? '28' : '18'}, inset 0 0 18px rgba(0,0,0,0.25)`,
+        border: `1px solid ${borderColor}`,
+        boxShadow: `0 0 ${isBad ? 28 : 18}px ${c}${isBad ? '28' : '18'}, inset 0 0 18px rgba(0,0,0,0.25)${shadowExtra}`,
         backdropFilter: 'blur(8px)',
         transition: 'box-shadow 0.4s ease, border-color 0.4s ease',
       }}
@@ -113,18 +119,30 @@ const buildNodes = (services) =>
     draggable: true,
   }))
 
-const buildEdges = (services) => {
+const buildEdges = (services, investigationPath = []) => {
   const statusMap = Object.fromEntries(services.map(s => [s.id, s.status]))
 
+  // An edge is on the investigation path if both endpoints are in the path
+  // and source appears before target
+  const isInvestigationEdge = (dep) => {
+    if (!investigationPath || investigationPath.length < 2) return false
+    const srcIdx = investigationPath.indexOf(dep.source)
+    const tgtIdx = investigationPath.indexOf(dep.target)
+    return srcIdx !== -1 && tgtIdx !== -1 && srcIdx < tgtIdx
+  }
+
   return dependencies.map(dep => {
+    const onPath    = isInvestigationEdge(dep)
     const srcStatus = statusMap[dep.source] ?? 'healthy'
     const tgtStatus = statusMap[dep.target] ?? 'healthy'
-    // Edge reflects the worse of the two connected services
     const worstStatus =
       (srcStatus === 'critical' || tgtStatus === 'critical') ? 'critical' :
       (srcStatus === 'degraded' || tgtStatus === 'degraded') ? 'degraded' : 'healthy'
 
-    const { color, width } = EDGE_STROKE[worstStatus]
+    const color = onPath
+      ? 'rgba(168,85,247,0.95)'
+      : EDGE_STROKE[worstStatus].color
+    const width = onPath ? 3 : EDGE_STROKE[worstStatus].width
 
     return {
       id:     dep.id,
@@ -132,7 +150,7 @@ const buildEdges = (services) => {
       target: dep.target,
       type:   'smoothstep',
       label:  dep.label,
-      labelStyle:   { fill: '#334155', fontSize: 10, fontFamily: 'monospace' },
+      labelStyle:   { fill: onPath ? '#a855f7' : '#334155', fontSize: 10, fontFamily: 'monospace' },
       labelBgStyle: { fill: 'rgba(3,9,22,0.85)', rx: 4 },
       labelBgPadding: [4, 6],
       style:    { stroke: color, strokeWidth: width, transition: 'stroke 0.5s, stroke-width 0.5s' },
@@ -148,21 +166,22 @@ const buildEdges = (services) => {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function DependencyGraph({ services }) {
+export default function DependencyGraph({ services, investigationPath = [] }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(services))
-  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges(services))
+  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges(services, investigationPath))
 
-  // Re-build nodes/edges whenever service states change
+  // Re-build nodes/edges whenever service states or investigation path changes
   useEffect(() => {
     setNodes(prev =>
       buildNodes(services).map(n => ({
         ...n,
-        // Preserve user-dragged position if available
         position: prev.find(p => p.id === n.id)?.position ?? n.position,
+        // Mark investigation nodes for visual treatment in ServiceNode
+        data: { ...n.data, isInvestigated: investigationPath.includes(n.id) },
       }))
     )
-    setEdges(buildEdges(services))
-  }, [services])
+    setEdges(buildEdges(services, investigationPath))
+  }, [services, investigationPath])
 
   const hasIncident = services.some(s => s.status !== 'healthy')
 

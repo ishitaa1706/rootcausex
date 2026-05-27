@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import Sidebar   from './components/Sidebar'
-import Header    from './components/Header'
-import Dashboard from './components/Dashboard'
+import { AnimatePresence } from 'framer-motion'
+import Sidebar             from './components/Sidebar'
+import Header              from './components/Header'
+import Dashboard           from './components/Dashboard'
+import InvestigationPanel  from './components/InvestigationPanel'
 import { services as mockServices, systemStatus as mockStatus } from './data/mockData'
 import { api } from './api/client'
 
@@ -28,6 +30,12 @@ export default function App() {
   const [playbackPhase,        setPlaybackPhase]        = useState(null)
   const [playbackServices,     setPlaybackServices]     = useState(null)
   const [playbackSystemStatus, setPlaybackSystemStatus] = useState(null)
+
+  // ── Investigation state (Phase 4) ─────────────────────────────────────────
+  const [investigationOpen,    setInvestigationOpen]    = useState(false)
+  const [investigatingAnomaly, setInvestigatingAnomaly] = useState(null)
+  const [investigatingEventId, setInvestigatingEventId] = useState(null)
+  const [investigationPath,    setInvestigationPath]    = useState([])
 
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -74,6 +82,25 @@ export default function App() {
     } catch {}
   }, [])
 
+  // ── Investigation controls (Phase 4) ─────────────────────────────────────
+  const handleInvestigate = useCallback((anomaly, timelineEventId) => {
+    setInvestigatingAnomaly(anomaly ?? null)
+    setInvestigatingEventId(timelineEventId ?? null)
+    setInvestigationPath([])
+    setInvestigationOpen(true)
+  }, [])
+
+  const handleCloseInvestigation = useCallback(() => {
+    setInvestigationOpen(false)
+    setInvestigatingAnomaly(null)
+    setInvestigatingEventId(null)
+    setInvestigationPath([])
+  }, [])
+
+  const handleRcaReady = useCallback((propagationPath) => {
+    setInvestigationPath(propagationPath ?? [])
+  }, [])
+
   // ── Playback controls ─────────────────────────────────────────────────────
   const handlePlaybackPhaseChange = useCallback(async (phase) => {
     if (phase === null) {
@@ -110,8 +137,22 @@ export default function App() {
           onTrigger={handleTrigger}
           onReset={handleReset}
           onPlaybackPhaseChange={handlePlaybackPhaseChange}
+          onInvestigate={handleInvestigate}
+          investigationPath={investigationPath}
         />
       </div>
+
+      {/* Investigation Panel — right-side drawer */}
+      <AnimatePresence>
+        {investigationOpen && (
+          <InvestigationPanel
+            anomaly={investigatingAnomaly}
+            eventId={investigatingEventId}
+            onClose={handleCloseInvestigation}
+            onRcaReady={handleRcaReady}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

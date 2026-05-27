@@ -29,6 +29,8 @@ export default function Dashboard({
   onTrigger,
   onReset,
   onPlaybackPhaseChange,
+  onInvestigate,
+  investigationPath,
 }) {
   return (
     <div
@@ -68,7 +70,7 @@ export default function Dashboard({
 
       {/* Anomaly feed — visible during incident or playback (phase > 0) */}
       {(incidentActive || playbackPhase > 0) && anomalies.length > 0 && (
-        <AnomalyFeed anomalies={anomalies} />
+        <AnomalyFeed anomalies={anomalies} onInvestigate={onInvestigate} />
       )}
 
       {/* Service health cards */}
@@ -84,7 +86,7 @@ export default function Dashboard({
       {/* Dependency graph */}
       <section className="mb-6">
         <SectionLabel text="Service Topology" />
-        <DependencyGraph services={services} />
+        <DependencyGraph services={services} investigationPath={investigationPath} />
       </section>
 
       {/* Incident Timeline — Phase 3 */}
@@ -94,6 +96,7 @@ export default function Dashboard({
           playbackPhase={playbackPhase}
           incidentActive={incidentActive}
           onPlaybackPhaseChange={onPlaybackPhaseChange}
+          onInvestigate={onInvestigate}
         />
       </section>
     </div>

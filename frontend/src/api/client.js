@@ -19,6 +19,16 @@ async function post(path) {
   return res.json()
 }
 
+async function postJson(path, body) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`[RootCauseX API] ${res.status} ${path}`)
+  return res.json()
+}
+
 export const api = {
   // Services
   getServices:     ()      => get('/services'),
@@ -52,4 +62,10 @@ export const api = {
   getTimelineEvents:       ()       => get('/timeline/events'),
   getPlaybackState:        (phase)  => get(`/timeline/playback-state/${phase}`),
   getCorrelation:          (deplId) => get(`/timeline/correlation/${deplId}`),
+
+  // Investigation — Phase 4
+  postInvestigate: (anomalyId, timelineEventId) =>
+    postJson('/investigate', { anomalyId, timelineEventId }),
+  postFollowUp: (investigationId, question) =>
+    postJson('/investigate/follow-up', { investigationId, question }),
 }

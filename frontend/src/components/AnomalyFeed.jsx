@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertTriangle, XCircle, ChevronRight } from 'lucide-react'
+import { AlertTriangle, XCircle, ChevronRight, Search } from 'lucide-react'
 
 const SEVERITY = {
   critical: {
@@ -28,7 +28,7 @@ const TYPE_LABEL = {
   DEPENDENCY_INSTABILITY: 'Dependency Instability',
 }
 
-function AnomalyRow({ anomaly, index }) {
+function AnomalyRow({ anomaly, index, onInvestigate }) {
   const cfg  = SEVERITY[anomaly.severity] ?? SEVERITY.warning
   const Icon = cfg.icon
 
@@ -73,15 +73,40 @@ function AnomalyRow({ anomaly, index }) {
         </p>
       </div>
 
-      {/* Timestamp */}
-      <span className="text-[10px] font-mono shrink-0 mt-0.5" style={{ color: '#334155' }}>
-        {anomaly.timestamp}
-      </span>
+      {/* Right side: timestamp + investigate button */}
+      <div className="flex flex-col items-end gap-2 shrink-0">
+        <span className="text-[10px] font-mono" style={{ color: '#334155' }}>
+          {anomaly.timestamp}
+        </span>
+        {onInvestigate && (
+          <motion.button
+            whileTap={{ scale: 0.93 }}
+            onClick={() => onInvestigate(anomaly)}
+            className="flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-1 rounded transition-all duration-150"
+            style={{
+              background: 'rgba(56,189,248,0.08)',
+              border:     '1px solid rgba(56,189,248,0.2)',
+              color:      '#38bdf8',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(56,189,248,0.15)'
+              e.currentTarget.style.borderColor = 'rgba(56,189,248,0.4)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(56,189,248,0.08)'
+              e.currentTarget.style.borderColor = 'rgba(56,189,248,0.2)'
+            }}
+          >
+            <Search size={9} />
+            Investigate
+          </motion.button>
+        )}
+      </div>
     </motion.div>
   )
 }
 
-export default function AnomalyFeed({ anomalies }) {
+export default function AnomalyFeed({ anomalies, onInvestigate }) {
   if (!anomalies || anomalies.length === 0) return null
 
   const criticalCount = anomalies.filter(a => a.severity === 'critical').length
@@ -132,7 +157,7 @@ export default function AnomalyFeed({ anomalies }) {
       <div className="flex flex-col gap-2 p-3">
         <AnimatePresence>
           {anomalies.map((anomaly, i) => (
-            <AnomalyRow key={anomaly.id} anomaly={anomaly} index={i} />
+            <AnomalyRow key={anomaly.id} anomaly={anomaly} index={i} onInvestigate={onInvestigate} />
           ))}
         </AnimatePresence>
       </div>

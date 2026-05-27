@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Rocket, AlertTriangle, XCircle, GitBranch,
-  GitMerge, Play, Pause, SkipBack, SkipForward, Radio
+  GitMerge, Play, Pause, SkipBack, SkipForward, Radio, Search
 } from 'lucide-react'
 import { api } from '../api/client'
 
@@ -66,7 +66,7 @@ function ServiceBadge({ serviceId }) {
   )
 }
 
-function TimelineEventRow({ event, isActive, isPast, onClick }) {
+function TimelineEventRow({ event, isActive, isPast, onClick, onInvestigate }) {
   const cfg  = EVENT_TYPE[event.eventType] ?? EVENT_TYPE.ANOMALY
   const Icon = cfg.icon
 
@@ -130,7 +130,7 @@ function TimelineEventRow({ event, isActive, isPast, onClick }) {
           {event.title}
         </div>
 
-        {/* Description — only for active events */}
+        {/* Description + Investigate button — only for active events */}
         <AnimatePresence>
           {isActive && (
             <motion.div
@@ -138,10 +138,36 @@ function TimelineEventRow({ event, isActive, isPast, onClick }) {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.25 }}
-              className="text-[11px] font-mono leading-relaxed mt-1"
-              style={{ color: '#64748b' }}
             >
-              {event.description}
+              <p className="text-[11px] font-mono leading-relaxed mt-1" style={{ color: '#64748b' }}>
+                {event.description}
+              </p>
+              {onInvestigate && event.eventType !== 'DEPLOYMENT' && (
+                <motion.button
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                  whileTap={{ scale: 0.93 }}
+                  onClick={e => { e.stopPropagation(); onInvestigate(null, event.id) }}
+                  className="flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-1 rounded mt-2 transition-all duration-150"
+                  style={{
+                    background:  'rgba(56,189,248,0.08)',
+                    border:      '1px solid rgba(56,189,248,0.2)',
+                    color:       '#38bdf8',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background  = 'rgba(56,189,248,0.15)'
+                    e.currentTarget.style.borderColor = 'rgba(56,189,248,0.4)'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background  = 'rgba(56,189,248,0.08)'
+                    e.currentTarget.style.borderColor = 'rgba(56,189,248,0.2)'
+                  }}
+                >
+                  <Search size={9} />
+                  Investigate
+                </motion.button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -152,7 +178,7 @@ function TimelineEventRow({ event, isActive, isPast, onClick }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function TimelinePanel({ playbackPhase, incidentActive, onPlaybackPhaseChange }) {
+export default function TimelinePanel({ playbackPhase, incidentActive, onPlaybackPhaseChange, onInvestigate }) {
   const [events,       setEvents]       = useState([])
   const [phase,        setPhase]        = useState(playbackPhase ?? 0)
   const [isPlaying,    setIsPlaying]    = useState(false)
@@ -321,6 +347,7 @@ export default function TimelinePanel({ playbackPhase, incidentActive, onPlaybac
                 isActive={evt.phase === phase && !isLive}
                 isPast={evt.phase < phase || isLive}
                 onClick={() => goToPhase(evt.phase)}
+                onInvestigate={onInvestigate}
               />
             ))
           )}
