@@ -44,19 +44,31 @@ export default function App() {
       .catch(() => {})
   }, [])
 
-  // ── Live polling (3s, only when incident active and not in playback) ───────
+  // ── Live polling — services + status (pauses during playback) ───────────
   useEffect(() => {
     if (!incidentActive || playbackPhase !== null) return
     const id = setInterval(async () => {
       try {
-        const [svcs, status, anoms] = await Promise.all([
-          api.getServices(), api.getSystemStatus(), api.getAnomalies(),
+        const [svcs, status] = await Promise.all([
+          api.getServices(), api.getSystemStatus(),
         ])
-        setServices(svcs); setSystemStatus(status); setAnomalies(anoms)
+        setServices(svcs); setSystemStatus(status)
       } catch {}
     }, 3000)
     return () => clearInterval(id)
   }, [incidentActive, playbackPhase])
+
+  // ── Anomaly polling — always runs when incident active (playback doesn't pause it) ──
+  useEffect(() => {
+    if (!incidentActive) return
+    const id = setInterval(async () => {
+      try {
+        const anoms = await api.getAnomalies()
+        setAnomalies(anoms)
+      } catch {}
+    }, 3000)
+    return () => clearInterval(id)
+  }, [incidentActive])
 
   // ── Incident controls ─────────────────────────────────────────────────────
   const handleTrigger = useCallback(async () => {
@@ -77,6 +89,9 @@ export default function App() {
       setIncidentActive(false)
       setAnomalies([])
       setPlaybackPhase(null); setPlaybackServices(null); setPlaybackSystemStatus(null)
+      // Close investigation panel if open — incident is gone, RCA is stale
+      setInvestigationOpen(false); setInvestigatingAnomaly(null)
+      setInvestigatingEventId(null); setInvestigationPath([])
       const [svcs, status] = await Promise.all([api.getServices(), api.getSystemStatus()])
       setServices(svcs); setSystemStatus(status)
     } catch {}
@@ -146,6 +161,7 @@ export default function App() {
       <AnimatePresence>
         {investigationOpen && (
           <InvestigationPanel
+            key={investigatingAnomaly?.id ?? investigatingEventId}
             anomaly={investigatingAnomaly}
             eventId={investigatingEventId}
             onClose={handleCloseInvestigation}
