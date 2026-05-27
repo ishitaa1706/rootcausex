@@ -243,9 +243,20 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
                 style={{ background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.15)' }}
               >
                 <SectionHeading label="Probable Root Cause" color="#38bdf8" />
-                <p className="text-xs font-mono leading-relaxed" style={{ color: '#94a3b8' }}>
-                  {rca.probableRootCause}
-                </p>
+                <ul className="flex flex-col gap-2">
+                  {rca.probableRootCause
+                    .split(/(?<=\.)\s+/)
+                    .filter(s => s.trim().length > 0)
+                    .map((sentence, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="shrink-0 mt-0.5" style={{ color: '#38bdf8' }}>·</span>
+                        <span className="text-xs font-mono leading-relaxed" style={{ color: '#94a3b8' }}>
+                          {sentence.trim()}
+                        </span>
+                      </li>
+                    ))
+                  }
+                </ul>
               </div>
 
               {/* 2. Propagation Path */}
