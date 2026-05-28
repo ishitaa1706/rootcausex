@@ -10,6 +10,9 @@ import {
   Handle,
   Position,
   MarkerType,
+  BaseEdge,
+  EdgeLabelRenderer,
+  getSmoothStepPath,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { dependencies } from '../data/mockData'
@@ -26,6 +29,58 @@ const EDGE_STROKE = {
   healthy:  { color: 'rgba(56,189,248,0.35)',  width: 1.5 },
   degraded: { color: 'rgba(245,158,11,0.65)',  width: 2   },
   critical: { color: 'rgba(239,68,68,0.85)',   width: 2.5 },
+}
+
+// ─── Custom edge — label sits consistently 14 px BELOW every edge midpoint ───
+// All labels on the top rail (auth→payment, payment→order) share the same Y
+// offset, giving horizontal alignment. Bottom-rail edges (inv/notif→order) also
+// appear below their respective midpoints at a natural diagonal position.
+function LabeledEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, markerEnd, data }) {
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
+    sourceX, sourceY, sourcePosition,
+    targetX, targetY, targetPosition,
+  })
+  const onPath      = data?.onPath ?? false
+  const edgeLabel   = data?.label  ?? ''
+  const labelColor  = onPath ? '#c084fc'               : '#64748b'
+  const labelBorder = onPath ? 'rgba(168,85,247,0.45)' : 'rgba(56,189,248,0.22)'
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
+
+      {edgeLabel && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position:      'absolute',
+              // -50% centres horizontally; +14px drops consistently below the line
+              transform:     `translate(-50%, 14px) translate(${labelX}px, ${labelY}px)`,
+              pointerEvents: 'none',
+            }}
+          >
+            <span
+              style={{
+                display:      'inline-block',
+                background:   'rgba(2,8,23,0.92)',
+                border:       `1px solid ${labelBorder}`,
+                borderRadius: 4,
+                padding:      '2px 8px',
+                fontSize:     11,
+                fontFamily:   'monospace',
+                fontWeight:   600,
+                color:        labelColor,
+                whiteSpace:   'nowrap',
+                lineHeight:   1.5,
+              }}
+            >
+              {edgeLabel}
+            </span>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  )
 }
 
 // ─── Custom node ──────────────────────────────────────────────────────────────
@@ -128,14 +183,19 @@ function ServiceNode({ data }) {
 }
 
 const nodeTypes = { service: ServiceNode }
+const edgeTypes = { labeled: LabeledEdge }
 
 // ─── Positions ────────────────────────────────────────────────────────────────
+// Top rail: auth / payment / order on the same Y → "JWT validate" and
+// "process order" labels both land at identical Y (rail + 14px), giving
+// clean horizontal alignment for the primary flow.
+// Bottom rail: inventory and notification connect diagonally upward to order.
 const POSITIONS = {
   auth:         { x: 20,  y: 120 },
-  payment:      { x: 240, y: 120 },
-  order:        { x: 460, y: 120 },
-  inventory:    { x: 240, y: 290 },
-  notification: { x: 20,  y: 290 },
+  payment:      { x: 260, y: 120 },
+  order:        { x: 500, y: 120 },
+  inventory:    { x: 300, y: 295 },
+  notification: { x: 20,  y: 295 },
 }
 
 // ─── Builders — now take focusState so propagationStep drives animation ───────
@@ -190,15 +250,12 @@ function buildEdges(services, investigationPath, focusState) {
     const width = onPath ? 3.5                      : EDGE_STROKE[worstStatus].width
 
     return {
-      id:       dep.id,
-      source:   dep.source,
-      target:   dep.target,
-      type:     'smoothstep',
-      label:    dep.label,
-      labelStyle:     { fill: onPath ? '#a855f7' : '#334155', fontSize: 10, fontFamily: 'monospace' },
-      labelBgStyle:   { fill: 'rgba(3,9,22,0.85)', rx: 4 },
-      labelBgPadding: [4, 6],
-      style:    { stroke: color, strokeWidth: width, transition: 'stroke 0.45s, stroke-width 0.45s' },
+      id:     dep.id,
+      source: dep.source,
+      target: dep.target,
+      type:   'labeled',          // ← custom edge: label floats above the line
+      data:   { label: dep.label, onPath },
+      style:  { stroke: color, strokeWidth: width, transition: 'stroke 0.45s, stroke-width 0.45s' },
       markerEnd: {
         type:   MarkerType.ArrowClosed,
         color,
@@ -313,6 +370,7 @@ export default function DependencyGraph({ services, investigationPath = [] }) {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           fitView
           fitViewOptions={{ padding: 0.3 }}
           proOptions={{ hideAttribution: true }}
