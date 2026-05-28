@@ -53,6 +53,7 @@ export const api = {
   // Incident — Phase 2
   triggerIncident:         ()       => post('/incident/trigger'),
   resetIncident:           ()       => post('/incident/reset'),
+  advanceIncident:         ()       => post('/incident/advance'),
   getIncidentStatus:       ()       => get('/incident/status'),
 
   // Anomalies — Phase 2

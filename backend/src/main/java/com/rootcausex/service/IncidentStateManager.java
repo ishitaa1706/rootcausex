@@ -4,7 +4,6 @@ import com.rootcausex.model.*;
 import com.rootcausex.repository.MockDataRepository;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
@@ -13,26 +12,27 @@ import java.util.List;
  *
  * Holds mutable incident state and returns service/system data
  * that reflects the current degradation phase — no background
- * threads, no database. Pure time-based computation.
+ * threads, no database. Manual phase progression (user-controlled).
  *
  * Incident story:
  *   auth-service v2.1 introduced a retry amplification bug.
  *   Under peak load (6–7 PM) retries cascade downstream:
  *   auth → payment → order degrades progressively.
  *
- * Phase timeline (seconds since trigger):
- *   0–20s  → Phase 1: auth DEGRADED
- *   20–40s → Phase 2: auth CRITICAL, payment DEGRADED
- *   40–60s → Phase 3: auth CRITICAL, payment CRITICAL, order DEGRADED
- *   60s+   → Phase 4: full cascade CRITICAL
+ * Phase progression (manual — advance via POST /incident/advance):
+ *   Phase 1: auth DEGRADED
+ *   Phase 2: auth CRITICAL, payment DEGRADED
+ *   Phase 3: auth CRITICAL, payment CRITICAL, order DEGRADED
+ *   Phase 4: full cascade CRITICAL
  */
 @Service
 public class IncidentStateManager {
 
     private final MockDataRepository repository;
 
-    private volatile boolean active = false;
-    private volatile Instant triggeredAt = null;
+    private volatile boolean active       = false;
+    private volatile Instant triggeredAt  = null;
+    private volatile int     currentPhase = 1;
 
     public IncidentStateManager(MockDataRepository repository) {
         this.repository = repository;
@@ -41,30 +41,27 @@ public class IncidentStateManager {
     // ── Control ───────────────────────────────────────────────────────────────
 
     public void trigger() {
-        triggeredAt = Instant.now();
-        active = true;
+        triggeredAt  = Instant.now();
+        currentPhase = 1;
+        active       = true;
     }
 
     public void reset() {
-        active = false;
-        triggeredAt = null;
+        active       = false;
+        triggeredAt  = null;
+        currentPhase = 1;
+    }
+
+    /** Advance to the next degradation phase (max Phase 4). */
+    public void advancePhase() {
+        if (active && currentPhase < 4) currentPhase++;
     }
 
     public boolean isActive()         { return active; }
     public Instant getTriggeredAt()   { return triggeredAt; }
 
-    public long elapsedSeconds() {
-        if (!active || triggeredAt == null) return 0;
-        return Duration.between(triggeredAt, Instant.now()).getSeconds();
-    }
-
     public int currentPhase() {
-        if (!active) return 0;
-        long s = elapsedSeconds();
-        if (s < 20) return 1;
-        if (s < 40) return 2;
-        if (s < 60) return 3;
-        return 4;
+        return active ? currentPhase : 0;
     }
 
     // ── Status ────────────────────────────────────────────────────────────────
@@ -80,9 +77,12 @@ public class IncidentStateManager {
             case 2 -> List.of("auth", "payment");
             default -> List.of("auth", "payment", "order");
         };
+        long elapsed = (triggeredAt != null)
+            ? java.time.Duration.between(triggeredAt, Instant.now()).getSeconds()
+            : 0;
         return new IncidentStatus(
             true, phaseName, phase,
-            triggeredAt.toString(), elapsedSeconds(), affected
+            triggeredAt.toString(), elapsed, affected
         );
     }
 

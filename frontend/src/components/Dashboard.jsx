@@ -28,6 +28,7 @@ export default function Dashboard({
   playbackPhase,
   onTrigger,
   onReset,
+  onAdvance,
   onPlaybackPhaseChange,
   onInvestigate,
   investigationPath,
@@ -106,7 +107,13 @@ export default function Dashboard({
           </p>
         </div>
 
-        <IncidentControls incidentActive={incidentActive} onTrigger={onTrigger} onReset={onReset} />
+        <IncidentControls
+          incidentActive={incidentActive}
+          incidentPhase={incidentPhase}
+          onTrigger={onTrigger}
+          onReset={onReset}
+          onAdvance={onAdvance}
+        />
       </motion.div>
 
       {/* System status — always visible */}

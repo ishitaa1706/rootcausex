@@ -9,6 +9,7 @@ import java.util.Map;
 /**
  * POST /incident/trigger  — start the incident simulation
  * POST /incident/reset    — restore healthy baseline
+ * POST /incident/advance  — advance to the next degradation phase
  * GET  /incident/status   — current incident state
  */
 @RestController
@@ -36,6 +37,17 @@ public class IncidentController {
         return Map.of(
             "reset", true,
             "message", "System reset to healthy baseline"
+        );
+    }
+
+    @PostMapping("/advance")
+    public Map<String, Object> advance() {
+        manager.advancePhase();
+        int phase = manager.currentPhase();
+        return Map.of(
+            "advanced", true,
+            "phase", phase,
+            "message", "Incident advanced to phase " + phase
         );
     }
 

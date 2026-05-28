@@ -97,6 +97,17 @@ export default function App() {
     } catch {}
   }, [])
 
+  const handleAdvance = useCallback(async () => {
+    try {
+      await api.advanceIncident()
+      const [svcs, status, incStatus] = await Promise.all([
+        api.getServices(), api.getSystemStatus(), api.getIncidentStatus(),
+      ])
+      setServices(svcs); setSystemStatus(status)
+      setIncidentPhase(incStatus.phaseIndex ?? 0)
+    } catch {}
+  }, [])
+
   const handleReset = useCallback(async () => {
     try {
       await api.resetIncident()
@@ -171,6 +182,7 @@ export default function App() {
             playbackPhase={playbackPhase}
             onTrigger={handleTrigger}
             onReset={handleReset}
+            onAdvance={handleAdvance}
             onPlaybackPhaseChange={handlePlaybackPhaseChange}
             onInvestigate={handleInvestigate}
             investigationPath={investigationPath}
