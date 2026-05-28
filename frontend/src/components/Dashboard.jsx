@@ -33,12 +33,31 @@ export default function Dashboard({
   onInvestigate,
   investigationPath,
   investigatingId,
+  investigationActive,   // ← Phase 5: true when investigation panel is open
 }) {
   return (
     <div
-      className="flex-1 overflow-auto px-6 py-5"
+      className="flex-1 overflow-auto px-6 py-5 relative"
       style={{ scrollbarWidth: 'thin' }}
     >
+      {/* ── AI Cognition scan line — subtle horizontal sweep during investigation ── */}
+      {investigationActive && (
+        <motion.div
+          style={{
+            position:   'fixed',
+            left:        60,   // after sidebar
+            right:       480,  // before investigation panel
+            height:      1,
+            background:  'linear-gradient(90deg, transparent 0%, rgba(168,85,247,0.2) 20%, rgba(168,85,247,0.45) 50%, rgba(168,85,247,0.2) 80%, transparent 100%)',
+            zIndex:       5,
+            pointerEvents: 'none',
+          }}
+          initial={{ top: '64px' }}
+          animate={{ top: ['64px', '100vh'] }}
+          transition={{ duration: 9, repeat: Infinity, ease: 'linear' }}
+        />
+      )}
+
       {/* Page heading + incident controls */}
       <motion.div
         initial={{ opacity: 0, x: -16 }}
@@ -52,11 +71,13 @@ export default function Dashboard({
           </h1>
           <p className="text-sm font-mono" style={{ color: '#475569' }}>
             Live production environment&nbsp;·&nbsp;5 services monitored&nbsp;·&nbsp;
-            {playbackPhase !== null
-              ? `timeline replay — phase ${playbackPhase}`
-              : incidentActive
-                ? 'incident simulation active'
-                : 'connected to backend'}
+            {investigationActive
+              ? <span style={{ color: '#a855f7' }}>AI cognition active — investigating</span>
+              : playbackPhase !== null
+                ? `timeline replay — phase ${playbackPhase}`
+                : incidentActive
+                  ? 'incident simulation active'
+                  : 'connected to backend'}
           </p>
         </div>
 
@@ -92,10 +113,13 @@ export default function Dashboard({
       {/* Dependency graph */}
       <section className="mb-6">
         <SectionLabel text="Service Topology" />
-        <DependencyGraph services={services} investigationPath={investigationPath} />
+        <DependencyGraph
+          services={services}
+          investigationPath={investigationPath}
+        />
       </section>
 
-      {/* Incident Timeline — Phase 3 */}
+      {/* Incident Timeline */}
       <section>
         <SectionLabel text="Incident Timeline" />
         <TimelinePanel
@@ -104,6 +128,7 @@ export default function Dashboard({
           livePhase={incidentPhase}
           onPlaybackPhaseChange={onPlaybackPhaseChange}
           onInvestigate={onInvestigate}
+          investigationPath={investigationPath}
         />
       </section>
     </div>

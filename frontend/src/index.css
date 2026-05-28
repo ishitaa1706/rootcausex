@@ -97,6 +97,15 @@ body {
 
 .react-flow__edge-path { stroke-width: 1.5; }
 
+/* ─── RCA node pulse-in ─────────────────────────────────────────────────────── */
+/* Applied to service nodes the moment they appear in the propagation animation */
+@keyframes rca-node-pulse {
+  0%   { box-shadow: 0 0 0px rgba(168,85,247,0), outline: none; }
+  40%  { box-shadow: 0 0 40px rgba(168,85,247,1), 0 0 70px rgba(168,85,247,0.6); }
+  100% { box-shadow: 0 0 16px rgba(168,85,247,0.45); }
+}
+.rca-node-pulse { animation: rca-node-pulse 0.75s ease-out; }
+
 /* ─── Incident card animations ─────────────────────────────────────────────── */
 @keyframes card-critical-pulse {
   0%, 100% { box-shadow: 0 0 22px rgba(239,68,68,0.15), 0 0 0 1px rgba(239,68,68,0.4); }

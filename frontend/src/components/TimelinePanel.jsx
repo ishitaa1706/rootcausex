@@ -66,7 +66,7 @@ function ServiceBadge({ serviceId }) {
   )
 }
 
-function TimelineEventRow({ event, isActive, isPast, onClick, onInvestigate }) {
+function TimelineEventRow({ event, isActive, isPast, isUsedInRca, onClick, onInvestigate }) {
   const cfg  = EVENT_TYPE[event.eventType] ?? EVENT_TYPE.ANOMALY
   const Icon = cfg.icon
 
@@ -122,6 +122,21 @@ function TimelineEventRow({ event, isActive, isPast, onClick, onInvestigate }) {
           {event.affectedServices?.map(s => (
             <ServiceBadge key={s} serviceId={s} />
           ))}
+          {/* USED IN RCA badge — shown when this event's services are in the RCA propagation path */}
+          {isUsedInRca && (
+            <motion.span
+              animate={{ opacity: [1, 0.5, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity }}
+              className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded-full tracking-wider"
+              style={{
+                background: 'rgba(168,85,247,0.12)',
+                color:      '#a855f7',
+                border:     '1px solid rgba(168,85,247,0.28)',
+              }}
+            >
+              USED IN RCA
+            </motion.span>
+          )}
         </div>
 
         {/* Title */}
@@ -178,7 +193,7 @@ function TimelineEventRow({ event, isActive, isPast, onClick, onInvestigate }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function TimelinePanel({ playbackPhase, incidentActive, livePhase = 0, onPlaybackPhaseChange, onInvestigate }) {
+export default function TimelinePanel({ playbackPhase, incidentActive, livePhase = 0, onPlaybackPhaseChange, onInvestigate, investigationPath = [] }) {
   const [events,       setEvents]       = useState([])
   const [phase,        setPhase]        = useState(playbackPhase ?? 0)
   const [isPlaying,    setIsPlaying]    = useState(false)
@@ -354,6 +369,10 @@ export default function TimelinePanel({ playbackPhase, incidentActive, livePhase
                   isLive
                     ? (incidentActive ? evt.phase < livePhase : false)
                     : evt.phase < phase
+                }
+                isUsedInRca={
+                  investigationPath.length > 0 &&
+                  evt.affectedServices?.some(s => investigationPath.includes(s))
                 }
                 onClick={() => goToPhase(evt.phase)}
                 onInvestigate={onInvestigate}

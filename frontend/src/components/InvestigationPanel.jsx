@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Search, AlertTriangle, XCircle, ChevronRight, Send, GitCommit, Users } from 'lucide-react'
-import AIReasoningStream from './AIReasoningStream'
-import { api } from '../api/client'
+import {
+  X, Search, AlertTriangle, XCircle, ChevronRight,
+  Send, GitCommit, Users, Zap, Shield, Activity, GitMerge,
+} from 'lucide-react'
+import AIReasoningStream  from './AIReasoningStream'
+import RCAInsightCard     from './RCAInsightCard'
+import SuggestedQuestions from './SuggestedQuestions'
+import { api }            from '../api/client'
+import { useInvestigationFocus } from '../store/InvestigationFocusStore'
 
 // ── Service colour map ────────────────────────────────────────────────────────
 const SERVICE_TAG = {
@@ -15,7 +21,7 @@ const SERVICE_TAG = {
 
 // ── Severity badge config ─────────────────────────────────────────────────────
 const SEVERITY_CFG = {
-  P0: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)', label: 'P0 — Critical' },
+  P0: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)',  label: 'P0 — Critical' },
   P1: { color: '#f97316', bg: 'rgba(249,115,22,0.10)', border: 'rgba(249,115,22,0.28)', label: 'P1 — Major'    },
   P2: { color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.24)', label: 'P2 — Minor'    },
 }
@@ -32,25 +38,46 @@ function ServiceChip({ serviceId }) {
   )
 }
 
-function SectionHeading({ label, color = '#475569' }) {
-  return (
-    <div className="flex items-center gap-2 mb-2">
-      <span className="text-[10px] font-bold uppercase tracking-[0.15em] font-mono" style={{ color }}>
-        {label}
-      </span>
-      <div style={{ flex: 1, height: 1, background: `${color}20` }} />
-    </div>
-  )
+/**
+ * Animated confidence counter — counts up from a lower value to the real score.
+ * Gives the feeling that the AI is calculating confidence in real-time.
+ */
+function useConfidenceAnimation(targetScore, active) {
+  const [displayed, setDisplayed] = useState(0)
+
+  useEffect(() => {
+    if (!active || !targetScore) return
+    const start    = Math.max(targetScore - 32, 50)
+    const duration = 1600
+    const t0       = performance.now()
+
+    const tick = (now) => {
+      const progress = Math.min((now - t0) / duration, 1)
+      const eased    = 1 - Math.pow(1 - progress, 3) // ease-out cubic
+      setDisplayed(Math.round(start + (targetScore - start) * eased))
+      if (progress < 1) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, [active, targetScore])
+
+  return displayed
 }
 
 /**
- * InvestigationPanel — right-side investigation drawer.
+ * InvestigationPanel — right-side AI investigation drawer.
+ *
+ * Phase 5 upgrades:
+ *   - Syncs with InvestigationFocusStore to drive graph propagation animation
+ *   - Animated confidence counter
+ *   - RCAInsightCard sections (polished card layout)
+ *   - SuggestedQuestions for follow-up UX
+ *   - onStageChange wired into AIReasoningStream → store
  *
  * Props:
- *   anomaly    — the anomaly that triggered investigation (or null if timeline event)
- *   eventId    — timeline event id (or null if anomaly)
+ *   anomaly    — anomaly that triggered investigation (null if timeline event)
+ *   eventId    — timeline event id (null if anomaly)
  *   onClose    — callback to close the panel
- *   onRcaReady — callback(propagationPath) when RCA is loaded, used to highlight graph
+ *   onRcaReady — callback(propagationPath) when RCA loads (for graph highlight in App)
  */
 export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaReady }) {
   // 'reasoning' | 'complete' | 'error'
@@ -62,6 +89,12 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
   const [followUpLoading, setFollowUpLoading] = useState(false)
   const chatEndRef = useRef(null)
 
+  // ── Cognition store ────────────────────────────────────────────────────────
+  const { startInvestigation, setStage, rcaReady: storeRcaReady, closeInvestigation } = useInvestigationFocus()
+
+  // Animated confidence counter
+  const displayConfidence = useConfidenceAnimation(rca?.confidenceScore ?? 0, status === 'complete')
+
   // ── Fetch RCA on mount ────────────────────────────────────────────────────
   useEffect(() => {
     setStatus('reasoning')
@@ -69,28 +102,37 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
     setAnimationDone(false)
     setFollowUpMsgs([])
 
+    const triggerId = anomaly?.id ?? eventId ?? 'unknown'
+    startInvestigation(triggerId)
+
     api.postInvestigate(anomaly?.id ?? null, eventId ?? null)
       .then(data => {
         setRca(data)
+        // Notify app to update investigationPath → highlights graph
         if (onRcaReady) onRcaReady(data.propagationPath ?? [])
+        // Drive the store → triggers step-by-step graph animation
+        storeRcaReady(data)
       })
       .catch(() => setStatus('error'))
+
+    // Clean up store on unmount
+    return () => closeInvestigation()
   }, [anomaly?.id, eventId])
 
-  // Show RCA only when both animation done AND data ready
+  // Show RCA content only when BOTH animation done AND data ready
   useEffect(() => {
     if (animationDone && rca) setStatus('complete')
   }, [animationDone, rca])
 
-  // Scroll chat to bottom
+  // Scroll chat to bottom on new message
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [followUpMsgs])
 
   // ── Follow-up ─────────────────────────────────────────────────────────────
-  const handleFollowUp = async () => {
-    if (!followUpInput.trim() || !rca?.id || followUpLoading) return
-    const question = followUpInput.trim()
+  const handleFollowUp = async (questionOverride) => {
+    const question = (questionOverride ?? followUpInput).trim()
+    if (!question || !rca?.id || followUpLoading) return
     setFollowUpInput('')
     setFollowUpMsgs(prev => [...prev, { role: 'user', content: question }])
     setFollowUpLoading(true)
@@ -108,13 +150,13 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFollowUp() }
   }
 
+  // ── Derived display values ────────────────────────────────────────────────
   const triggerLabel = anomaly
     ? `${anomaly.anomalyType?.replace(/_/g, ' ')} · ${anomaly.serviceName}`
     : `Timeline Event · ${eventId}`
 
-  const severityColor = anomaly?.severity === 'critical' ? '#ef4444' : '#f59e0b'
-  const rcaSeverity   = rca?.severity ?? 'P1'
-  const sevCfg        = SEVERITY_CFG[rcaSeverity] ?? SEVERITY_CFG.P1
+  const rcaSeverity = rca?.severity ?? 'P1'
+  const sevCfg      = SEVERITY_CFG[rcaSeverity] ?? SEVERITY_CFG.P1
 
   return (
     <motion.div
@@ -124,10 +166,10 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
       className="fixed top-0 right-0 bottom-0 flex flex-col overflow-hidden z-50"
       style={{
-        width: 480,
-        background:  'rgba(3, 9, 22, 0.97)',
-        borderLeft:  '1px solid rgba(56,189,248,0.15)',
-        boxShadow:   '-20px 0 60px rgba(0,0,0,0.6), -4px 0 20px rgba(56,189,248,0.05)',
+        width:          480,
+        background:     'rgba(3, 9, 22, 0.97)',
+        borderLeft:     '1px solid rgba(56,189,248,0.15)',
+        boxShadow:      '-20px 0 60px rgba(0,0,0,0.6), -4px 0 20px rgba(56,189,248,0.05)',
         backdropFilter: 'blur(20px)',
       }}
     >
@@ -138,41 +180,57 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <Search size={13} color="#38bdf8" />
+            <motion.div
+              animate={status === 'reasoning'
+                ? { opacity: [1, 0.3, 1] }
+                : {}}
+              transition={{ duration: 1.1, repeat: Infinity }}
+            >
+              <Search size={13} color="#38bdf8" />
+            </motion.div>
             <span className="text-xs font-bold uppercase tracking-widest font-mono" style={{ color: '#38bdf8' }}>
               AI Investigation
             </span>
+            {status === 'reasoning' && (
+              <motion.span
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 0.8, repeat: Infinity }}
+                className="text-[9px] font-mono uppercase tracking-widest"
+                style={{ color: '#1e3a5f' }}
+              >
+                cognition active
+              </motion.span>
+            )}
           </div>
           <p className="text-xs font-mono truncate" style={{ color: '#475569' }}>
             {triggerLabel}
           </p>
         </div>
 
-        {/* Confidence + P-level badge — shown when complete */}
+        {/* Confidence + P-level badge — animated in when complete */}
         {status === 'complete' && rca && (
           <motion.div
             initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
             className="mx-3 flex items-center gap-2 shrink-0"
           >
-            {/* P-level */}
             <span
               className="text-[11px] font-bold font-mono px-2 py-1 rounded"
               style={{ background: sevCfg.bg, color: sevCfg.color, border: `1px solid ${sevCfg.border}` }}
             >
               {rcaSeverity}
             </span>
-            {/* Confidence */}
             <div className="flex flex-col items-center">
               <span className="text-[9px] font-mono uppercase tracking-widest mb-0" style={{ color: '#334155' }}>
                 conf
               </span>
-              <span
+              <motion.span
                 className="text-sm font-bold font-mono"
-                style={{ color: rca.confidenceScore >= 85 ? '#22c55e' : '#f59e0b' }}
+                style={{ color: (rca.confidenceScore ?? 0) >= 85 ? '#22c55e' : '#f59e0b' }}
               >
-                {rca.confidenceScore}%
-              </span>
+                {displayConfidence}%
+              </motion.span>
             </div>
           </motion.div>
         )}
@@ -200,7 +258,11 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <AIReasoningStream isActive onComplete={() => setAnimationDone(true)} />
+              <AIReasoningStream
+                isActive
+                onComplete={() => setAnimationDone(true)}
+                onStageChange={(i) => setStage(i)}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -219,8 +281,9 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
                 Failed to run investigation. Check that the backend is running and reachable.
               </p>
               <p className="text-xs font-mono leading-relaxed mt-2" style={{ color: '#475569' }}>
-                To enable live Claude analysis, set <span style={{ color: '#38bdf8' }}>ANTHROPIC_API_KEY</span> before
-                starting the backend. Without it, MOCK mode is used automatically.
+                To enable live Claude analysis, set{' '}
+                <span style={{ color: '#38bdf8' }}>ANTHROPIC_API_KEY</span> before starting the backend.
+                Without it, MOCK mode is used automatically.
               </p>
             </div>
           </div>
@@ -230,43 +293,33 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
         <AnimatePresence>
           {status === 'complete' && rca && (
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-              className="flex flex-col gap-5"
+              transition={{ duration: 0.38 }}
+              className="flex flex-col gap-3"
             >
               {/* Title */}
-              <h2 className="text-sm font-bold leading-snug" style={{ color: '#e2e8f0' }}>
+              <motion.h2
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.05 }}
+                className="text-sm font-bold leading-snug"
+                style={{ color: '#e2e8f0' }}
+              >
                 {rca.title}
-              </h2>
+              </motion.h2>
 
-              {/* ── END USER IMPACT (most prominent section) ──────────────────── */}
+              {/* ── End User Impact ─────────────────────────────────────────── */}
               {rca.endUserImpact && (
-                <div
-                  className="rounded-lg p-3"
-                  style={{
-                    background: sevCfg.bg,
-                    border:     `1px solid ${sevCfg.border}`,
-                  }}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users size={11} color={sevCfg.color} />
-                    <span
-                      className="text-[10px] font-bold uppercase tracking-[0.14em] font-mono"
-                      style={{ color: sevCfg.color }}
-                    >
-                      {rcaSeverity} · End User Impact
-                    </span>
-                  </div>
+                <RCAInsightCard icon={Users} label={`${rcaSeverity} · End User Impact`} color={sevCfg.color} delay={0.06}>
                   <p className="text-xs font-mono leading-relaxed" style={{ color: '#e2e8f0' }}>
                     {rca.endUserImpact}
                   </p>
-                </div>
+                </RCAInsightCard>
               )}
 
-              {/* ── Probable Root Cause ───────────────────────────────────────── */}
-              <div className="rounded-lg p-3" style={{ background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.15)' }}>
-                <SectionHeading label="Probable Root Cause" color="#38bdf8" />
+              {/* ── Probable Root Cause ─────────────────────────────────────── */}
+              <RCAInsightCard icon={Zap} label="Probable Root Cause" color="#38bdf8" delay={0.1}>
                 <ul className="flex flex-col gap-2">
                   {rca.probableRootCause
                     .split(/(?<=\.)\s+/)
@@ -281,12 +334,11 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
                     ))
                   }
                 </ul>
-              </div>
+              </RCAInsightCard>
 
-              {/* ── Propagation Path ─────────────────────────────────────────── */}
+              {/* ── Propagation Path ───────────────────────────────────────── */}
               {rca.propagationPath?.length > 0 && (
-                <div>
-                  <SectionHeading label="Propagation Path" color="#a855f7" />
+                <RCAInsightCard icon={GitMerge} label="Propagation Path" color="#a855f7" delay={0.14}>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {rca.propagationPath.map((svc, i) => (
                       <div key={svc} className="flex items-center gap-1.5">
@@ -297,47 +349,44 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
                       </div>
                     ))}
                   </div>
-                </div>
+                </RCAInsightCard>
               )}
 
-              {/* ── Affected Services ────────────────────────────────────────── */}
+              {/* ── Affected Services ──────────────────────────────────────── */}
               {rca.affectedServices?.length > 0 && (
-                <div>
-                  <SectionHeading label="Affected Services" color="#f59e0b" />
+                <RCAInsightCard icon={Activity} label="Affected Services" color="#f59e0b" delay={0.18}>
                   <div className="flex flex-wrap gap-1.5">
                     {rca.affectedServices.map(svc => (
                       <ServiceChip key={svc} serviceId={svc} />
                     ))}
                   </div>
-                </div>
+                </RCAInsightCard>
               )}
 
-              {/* ── Correlated Deployments ───────────────────────────────────── */}
+              {/* ── Correlated Deployments ────────────────────────────────── */}
               {rca.correlatedDeployments?.length > 0 && (
-                <div>
-                  <SectionHeading label="Correlated Deployments" color="#f97316" />
+                <RCAInsightCard icon={GitCommit} label="Correlated Deployments" color="#f97316" delay={0.22}>
                   <ul className="flex flex-col gap-2">
                     {rca.correlatedDeployments.map((item, i) => {
-                      const isHighSignal = item.includes('[HIGH SIGNAL]')
-                      const isMedSignal  = item.includes('[MEDIUM SIGNAL]')
-                      const dotColor     = isHighSignal ? '#ef4444' : isMedSignal ? '#f97316' : '#334155'
+                      const isHigh = item.includes('[HIGH SIGNAL]')
+                      const isMed  = item.includes('[MEDIUM SIGNAL]')
+                      const dotColor = isHigh ? '#ef4444' : isMed ? '#f97316' : '#334155'
                       return (
                         <li key={i} className="flex gap-2">
                           <GitCommit size={11} color={dotColor} className="shrink-0 mt-0.5" />
-                          <span className="text-xs font-mono leading-relaxed" style={{ color: isHighSignal ? '#94a3b8' : '#475569' }}>
+                          <span className="text-xs font-mono leading-relaxed" style={{ color: isHigh ? '#94a3b8' : '#475569' }}>
                             {item}
                           </span>
                         </li>
                       )
                     })}
                   </ul>
-                </div>
+                </RCAInsightCard>
               )}
 
-              {/* ── Supporting Evidence ──────────────────────────────────────── */}
+              {/* ── Supporting Evidence ───────────────────────────────────── */}
               {rca.supportingEvidence?.length > 0 && (
-                <div>
-                  <SectionHeading label="Supporting Evidence" color="#64748b" />
+                <RCAInsightCard icon={Shield} label="Supporting Evidence" color="#64748b" delay={0.26}>
                   <ul className="flex flex-col gap-2">
                     {rca.supportingEvidence.map((item, i) => (
                       <li key={i} className="flex gap-2">
@@ -348,13 +397,12 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
                       </li>
                     ))}
                   </ul>
-                </div>
+                </RCAInsightCard>
               )}
 
-              {/* ── Recommended Actions ──────────────────────────────────────── */}
+              {/* ── Recommended Actions ──────────────────────────────────── */}
               {rca.recommendedActions?.length > 0 && (
-                <div>
-                  <SectionHeading label="Recommended Actions" color="#22c55e" />
+                <RCAInsightCard icon={AlertTriangle} label="Recommended Actions" color="#22c55e" delay={0.3}>
                   <ul className="flex flex-col gap-2">
                     {rca.recommendedActions.map((item, i) => (
                       <li key={i} className="flex gap-2">
@@ -370,13 +418,38 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
                       </li>
                     ))}
                   </ul>
-                </div>
+                </RCAInsightCard>
               )}
 
-              {/* ── Follow-up message thread ─────────────────────────────────── */}
+              {/* ── Suggested follow-up questions ────────────────────────── */}
+              {followUpMsgs.length === 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="pt-2"
+                  style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
+                >
+                  <SuggestedQuestions
+                    rca={rca}
+                    onSelect={(q) => {
+                      setFollowUpInput(q)
+                      handleFollowUp(q)
+                    }}
+                  />
+                </motion.div>
+              )}
+
+              {/* ── Follow-up message thread ─────────────────────────────── */}
               {followUpMsgs.length > 0 && (
                 <div className="flex flex-col gap-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                  <SectionHeading label="Follow-up Investigation" color="#475569" />
+                  <div
+                    className="text-[10px] font-mono uppercase tracking-[0.14em] mb-0"
+                    style={{ color: '#334155' }}
+                  >
+                    Follow-up Investigation
+                  </div>
+
                   {followUpMsgs.map((msg, i) => (
                     <div
                       key={i}
@@ -402,12 +475,19 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
                     <motion.div
                       animate={{ opacity: [0.4, 1, 0.4] }}
                       transition={{ duration: 1.2, repeat: Infinity }}
-                      className="text-xs font-mono"
+                      className="flex items-center gap-2 text-xs font-mono"
                       style={{ color: '#334155' }}
                     >
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        className="w-3 h-3 border border-t-transparent rounded-full"
+                        style={{ borderColor: '#1e3a5f', borderTopColor: 'transparent' }}
+                      />
                       AI is reasoning…
                     </motion.div>
                   )}
+
                   <div ref={chatEndRef} />
                 </div>
               )}
@@ -440,13 +520,13 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
                 style={{ color: '#e2e8f0', lineHeight: 1.5, minHeight: 38, maxHeight: 100 }}
               />
               <button
-                onClick={handleFollowUp}
+                onClick={() => handleFollowUp()}
                 disabled={!followUpInput.trim() || followUpLoading}
                 className="m-1.5 w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-150"
                 style={{
-                  background:  followUpInput.trim() ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)',
-                  border:      `1px solid ${followUpInput.trim() ? 'rgba(56,189,248,0.3)' : 'rgba(255,255,255,0.06)'}`,
-                  color:       followUpInput.trim() ? '#38bdf8' : '#334155',
+                  background: followUpInput.trim() ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)',
+                  border:     `1px solid ${followUpInput.trim() ? 'rgba(56,189,248,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                  color:      followUpInput.trim() ? '#38bdf8' : '#334155',
                 }}
               >
                 <Send size={11} />

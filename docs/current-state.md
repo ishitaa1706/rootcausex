@@ -1,17 +1,17 @@
 # RootCauseX — Current Implementation State
 
 Last Updated:
-Phase 4 — AI Investigation Workflows (Frontend DONE · Backend DONE)
+Phase 5 — AI Cognition Experience (Frontend DONE · No backend changes required)
 
 ---
 
 # Current Phase
 
 Phase:
-Phase 3 — Runtime Context & Temporal Investigation
+Phase 5 — AI Cognition Experience
 
 Status:
-COMPLETE ✅ — Frontend done, Backend done, AI not started
+COMPLETE ✅ — Frontend done (pure UX layer, no backend changes needed)
 
 ---
 
@@ -77,6 +77,53 @@ as raw facts so Claude genuinely adds value.
 
 In real production, monitoring systems (Prometheus, Datadog, CloudWatch) emit only
 raw metric values — they never know the "why". Our data model mirrors that correctly.
+
+## Phase 5 — AI Cognition Experience ✅
+
+### New files
+- ✅ `store/InvestigationFocusStore.jsx` — centralized investigation cognition state (React context, no Redux)
+  - `isActive`, `propagationPath`, `affectedServices`, `propagationStep` (-1=stable, N=animating), `activeStage`, `confidenceLevel`
+  - `startInvestigation()`, `setStage()`, `rcaReady()`, `closeInvestigation()`
+  - `rcaReady()` auto-fires step-by-step propagation animation timers (480ms per step)
+- ✅ `components/RCAInsightCard.jsx` — polished intelligence card wrapper for RCA sections (icon + label header + colored border)
+- ✅ `components/SuggestedQuestions.jsx` — 4 contextual follow-up questions dynamically generated from RCA propagation path
+
+### Updated files
+- ✅ `components/AIReasoningStream.jsx` — upgraded from 6 to 8 stages with detail sub-text per stage ("└─ mapping auth→payment→order topology"), pulsing header badge, `onStageChange` callback
+- ✅ `components/InvestigationPanel.jsx` — animated confidence counter (counts up from ~55 to final score), RCAInsightCard sections, SuggestedQuestions, `startInvestigation`/`rcaReady` wired to store, `onStageChange` → store
+- ✅ `components/DependencyGraph.jsx` — uses `InvestigationFocusStore` for `propagationStep`; nodes animate in one-by-one (pulse glow on each newly revealed node), "● RCA" pill on investigated nodes, "AI INVESTIGATION" mode badge in panel header, purple dot background during investigation
+- ✅ `components/Dashboard.jsx` — `investigationActive` prop drives subtle purple scan-line sweep (fixed, 9s cycle), status bar shows "AI cognition active" in purple during investigation, passes `investigationPath` to TimelinePanel
+- ✅ `components/TimelinePanel.jsx` — `investigationPath` prop; events whose `affectedServices` intersect the propagation path show pulsing "USED IN RCA" badge
+- ✅ `App.jsx` — wrapped in `InvestigationFocusProvider`, passes `investigationActive={investigationOpen}` to Dashboard
+- ✅ `index.css` — added `rca-node-pulse` keyframe animation
+
+### Cognition UX flow (Phase 5)
+```
+User clicks Investigate
+  ↓
+InvestigationPanel: startInvestigation() → store.isActive = true
+  ↓
+AIReasoningStream: 8 stages animate in (680ms each), calling onStageChange(i) → store.activeStage updates
+  ↓
+DependencyGraph reacts to store.isActive: purple dot background, "AI INVESTIGATION" badge appears
+Dashboard scan line begins sweeping (purple, very subtle)
+  ↓
+RCA arrives from backend
+  ↓
+InvestigationPanel: rcaReady(rca) → store stores path, kicks off propagation animation
+  store dispatches propagationStep = 0 (auth lights up with pulse glow)
+  → 480ms → propagationStep = 1 (auth→payment edge + payment lights up)
+  → 480ms → propagationStep = 2 (payment→order edge + order lights up)
+  → 600ms → propagationStep = -1 (stable — all path nodes + edges permanently lit in purple)
+  ↓
+DependencyGraph: nodes animate in one-by-one with pulse burst, "● RCA" pill added
+TimelinePanel: "USED IN RCA" badge appears on events touching propagation path services
+InvestigationPanel: confidence counter animates up (1.6s, ease-out cubic)
+RCA sections appear as staggered RCAInsightCards
+SuggestedQuestions appear below — contextual, reference real service names from path
+```
+
+---
 
 ## Phase 4 — AI Investigation Workflows ✅
 

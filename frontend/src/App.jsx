@@ -6,6 +6,7 @@ import Dashboard           from './components/Dashboard'
 import InvestigationPanel  from './components/InvestigationPanel'
 import { services as mockServices, systemStatus as mockStatus } from './data/mockData'
 import { api } from './api/client'
+import { InvestigationFocusProvider } from './store/InvestigationFocusStore'
 
 /**
  * App — single source of truth for all runtime state.
@@ -140,41 +141,44 @@ export default function App() {
   const displaySystemStatus = playbackSystemStatus ?? systemStatus
 
   return (
-    <div
-      className="flex"
-      style={{ height: '100vh', overflow: 'hidden', background: '#020817' }}
-    >
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <Header systemStatus={displaySystemStatus} />
-        <Dashboard
-          services={displayServices}
-          systemStatus={displaySystemStatus}
-          anomalies={anomalies}
-          incidentActive={incidentActive}
-          incidentPhase={incidentPhase}
-          playbackPhase={playbackPhase}
-          onTrigger={handleTrigger}
-          onReset={handleReset}
-          onPlaybackPhaseChange={handlePlaybackPhaseChange}
-          onInvestigate={handleInvestigate}
-          investigationPath={investigationPath}
-          investigatingId={investigatingAnomaly?.id ?? null}
-        />
-      </div>
-
-      {/* Investigation Panel — right-side drawer */}
-      <AnimatePresence>
-        {investigationOpen && (
-          <InvestigationPanel
-            key={investigatingAnomaly?.id ?? investigatingEventId}
-            anomaly={investigatingAnomaly}
-            eventId={investigatingEventId}
-            onClose={handleCloseInvestigation}
-            onRcaReady={handleRcaReady}
+    <InvestigationFocusProvider>
+      <div
+        className="flex"
+        style={{ height: '100vh', overflow: 'hidden', background: '#020817' }}
+      >
+        <Sidebar />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <Header systemStatus={displaySystemStatus} />
+          <Dashboard
+            services={displayServices}
+            systemStatus={displaySystemStatus}
+            anomalies={anomalies}
+            incidentActive={incidentActive}
+            incidentPhase={incidentPhase}
+            playbackPhase={playbackPhase}
+            onTrigger={handleTrigger}
+            onReset={handleReset}
+            onPlaybackPhaseChange={handlePlaybackPhaseChange}
+            onInvestigate={handleInvestigate}
+            investigationPath={investigationPath}
+            investigatingId={investigatingAnomaly?.id ?? null}
+            investigationActive={investigationOpen}
           />
-        )}
-      </AnimatePresence>
-    </div>
+        </div>
+
+        {/* Investigation Panel — right-side drawer */}
+        <AnimatePresence>
+          {investigationOpen && (
+            <InvestigationPanel
+              key={investigatingAnomaly?.id ?? investigatingEventId}
+              anomaly={investigatingAnomaly}
+              eventId={investigatingEventId}
+              onClose={handleCloseInvestigation}
+              onRcaReady={handleRcaReady}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    </InvestigationFocusProvider>
   )
 }
