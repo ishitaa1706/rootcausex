@@ -178,7 +178,7 @@ function TimelineEventRow({ event, isActive, isPast, onClick, onInvestigate }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function TimelinePanel({ playbackPhase, incidentActive, onPlaybackPhaseChange, onInvestigate }) {
+export default function TimelinePanel({ playbackPhase, incidentActive, livePhase = 0, onPlaybackPhaseChange, onInvestigate }) {
   const [events,       setEvents]       = useState([])
   const [phase,        setPhase]        = useState(playbackPhase ?? 0)
   const [isPlaying,    setIsPlaying]    = useState(false)
@@ -200,10 +200,11 @@ export default function TimelinePanel({ playbackPhase, incidentActive, onPlaybac
     }
   }, [playbackPhase])
 
-  // Auto-jump to phase 1 when incident is first triggered
+  // When incident resets → return to phase 0 live view
+  // When incident starts → stay in LIVE mode so polling continues;
+  //   the timeline highlights events via livePhase from App.jsx polling
   useEffect(() => {
-    if (incidentActive) goToPhase(1)
-    else { setPhase(0); setIsLive(true); setIsPlaying(false) }
+    if (!incidentActive) { setPhase(0); setIsLive(true); setIsPlaying(false) }
   }, [incidentActive])
 
   // Auto-play loop
@@ -344,8 +345,16 @@ export default function TimelinePanel({ playbackPhase, incidentActive, onPlaybac
               <TimelineEventRow
                 key={evt.id}
                 event={evt}
-                isActive={evt.phase === phase && !isLive}
-                isPast={evt.phase < phase || isLive}
+                isActive={
+                  isLive
+                    ? (incidentActive && livePhase > 0 && evt.phase === livePhase)
+                    : evt.phase === phase
+                }
+                isPast={
+                  isLive
+                    ? (incidentActive ? evt.phase < livePhase : false)
+                    : evt.phase < phase
+                }
                 onClick={() => goToPhase(evt.phase)}
                 onInvestigate={onInvestigate}
               />
@@ -360,17 +369,21 @@ export default function TimelinePanel({ playbackPhase, incidentActive, onPlaybac
           <div className="mb-4">
             <div className="text-[10px] font-mono uppercase tracking-widest mb-1"
               style={{ color: '#334155' }}>
-              {isLive ? 'Current State' : `Phase ${phase} of 4`}
+              {isLive
+                ? (incidentActive && livePhase > 0 ? `Phase ${livePhase} of 4 — LIVE` : 'Current State')
+                : `Phase ${phase} of 4`}
             </div>
             <motion.div
-              key={isLive ? 'live' : phase}
+              key={isLive ? `live-${livePhase}` : phase}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
               className="text-sm font-bold font-mono"
-              style={{ color: isLive ? '#22c55e' : phaseColor }}
+              style={{ color: isLive ? (livePhase > 0 ? PHASE_COLORS[livePhase] : '#22c55e') : phaseColor }}
             >
-              {isLive ? 'LIVE — All Systems' : PHASE_LABELS[phase]}
+              {isLive
+                ? (incidentActive && livePhase > 0 ? PHASE_LABELS[livePhase] : 'All Systems Normal')
+                : PHASE_LABELS[phase]}
             </motion.div>
           </div>
 
@@ -449,28 +462,31 @@ export default function TimelinePanel({ playbackPhase, incidentActive, onPlaybac
             </motion.div>
           </AnimatePresence>
 
-          {/* Affected services at this phase */}
-          {!isLive && phase > 0 && (
-            <motion.div
-              key={`affected-${phase}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-4 pt-3"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
-            >
-              <div className="text-[10px] font-mono uppercase tracking-widest mb-2"
-                style={{ color: '#334155' }}>
-                Affected Services
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {(phase >= 1 ? ['auth'] : [])
-                  .concat(phase >= 2 ? ['payment'] : [])
-                  .concat(phase >= 3 ? ['order'] : [])
-                  .map(s => <ServiceBadge key={s} serviceId={s} />)
-                }
-              </div>
-            </motion.div>
-          )}
+          {/* Affected services — playback uses scrubbed phase; live uses livePhase */}
+          {((!isLive && phase > 0) || (isLive && incidentActive && livePhase > 0)) && (() => {
+            const p = isLive ? livePhase : phase
+            return (
+              <motion.div
+                key={`affected-${isLive ? 'live' : ''}-${p}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mt-4 pt-3"
+                style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+              >
+                <div className="text-[10px] font-mono uppercase tracking-widest mb-2"
+                  style={{ color: '#334155' }}>
+                  Affected Services
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(p >= 1 ? ['auth'] : [])
+                    .concat(p >= 2 ? ['payment'] : [])
+                    .concat(p >= 3 ? ['order'] : [])
+                    .map(s => <ServiceBadge key={s} serviceId={s} />)
+                  }
+                </div>
+              </motion.div>
+            )
+          })()}
         </div>
       </div>}
     </motion.div>

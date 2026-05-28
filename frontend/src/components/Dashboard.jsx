@@ -25,6 +25,7 @@ export default function Dashboard({
   systemStatus,
   anomalies,
   incidentActive,
+  incidentPhase,
   playbackPhase,
   onTrigger,
   onReset,
@@ -100,6 +101,7 @@ export default function Dashboard({
         <TimelinePanel
           playbackPhase={playbackPhase}
           incidentActive={incidentActive}
+          livePhase={incidentPhase}
           onPlaybackPhaseChange={onPlaybackPhaseChange}
           onInvestigate={onInvestigate}
         />

@@ -25,6 +25,7 @@ export default function App() {
   const [systemStatus,   setSystemStatus]   = useState(mockStatus)
   const [anomalies,      setAnomalies]      = useState([])
   const [incidentActive, setIncidentActive] = useState(false)
+  const [incidentPhase,  setIncidentPhase]  = useState(0)   // 0–4; tracks backend's live phase
 
   // ── Playback state ────────────────────────────────────────────────────────
   const [playbackPhase,        setPlaybackPhase]        = useState(null)
@@ -44,15 +45,17 @@ export default function App() {
       .catch(() => {})
   }, [])
 
-  // ── Live polling — services + status (pauses during playback) ───────────
+  // ── Live polling — services + status + incident phase (pauses during playback) ──
   useEffect(() => {
     if (!incidentActive || playbackPhase !== null) return
     const id = setInterval(async () => {
       try {
-        const [svcs, status] = await Promise.all([
-          api.getServices(), api.getSystemStatus(),
+        const [svcs, status, incStatus] = await Promise.all([
+          api.getServices(), api.getSystemStatus(), api.getIncidentStatus(),
         ])
-        setServices(svcs); setSystemStatus(status)
+        setServices(svcs)
+        setSystemStatus(status)
+        setIncidentPhase(incStatus.phaseIndex ?? 0)
       } catch {}
     }, 3000)
     return () => clearInterval(id)
@@ -88,6 +91,7 @@ export default function App() {
       await api.resetIncident()
       setIncidentActive(false)
       setAnomalies([])
+      setIncidentPhase(0)
       setPlaybackPhase(null); setPlaybackServices(null); setPlaybackSystemStatus(null)
       // Close investigation panel if open — incident is gone, RCA is stale
       setInvestigationOpen(false); setInvestigatingAnomaly(null)
@@ -148,6 +152,7 @@ export default function App() {
           systemStatus={displaySystemStatus}
           anomalies={anomalies}
           incidentActive={incidentActive}
+          incidentPhase={incidentPhase}
           playbackPhase={playbackPhase}
           onTrigger={handleTrigger}
           onReset={handleReset}
