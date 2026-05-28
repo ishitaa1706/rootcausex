@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
  * System prompt instructs Claude to:
  *   - act as a runtime investigator
  *   - reason over evidence only (no hallucination)
- *   - produce structured JSON RCA
+ *   - produce structured JSON RCA including severity + end-user impact
  *   - follow dependency chains
  *   - correlate deployment timing with anomaly onset
  */
@@ -31,6 +31,10 @@ public class InvestigationPromptBuilder {
 
                 {
                   "title": "Short incident title (max 10 words)",
+                  "severity": "P0",
+                  "endUserImpact": "Plain-English description of what end users are experiencing right now. \
+                Focus on business outcomes: 'Users cannot complete checkout', 'Payment processing failing', \
+                'Order placement success rate at 0%'. Be specific and direct.",
                   "probableRootCause": "Detailed root cause explanation. Reference specific service names, \
                 commit hashes, deployment timing, and metric values from the context.",
                   "affectedServices": ["auth", "payment"],
@@ -40,17 +44,25 @@ public class InvestigationPromptBuilder {
                     "Evidence item 2",
                     "Evidence item 3"
                   ],
+                  "correlatedDeployments": [
+                    "service-name vX.Y (timestamp, author, commit-hash): 'commit message' — N min gap to first anomaly [SIGNAL LEVEL]"
+                  ],
                   "recommendedActions": [
-                    "Specific action 1",
+                    "Specific action 1 — e.g. rollback auth-service v2.1 → v2.0",
                     "Specific action 2"
                   ],
                   "confidenceScore": 88,
                   "reasoningSteps": [
-                    "Step 1: first observation",
-                    "Step 2: what this implies",
-                    "Step 3: how evidence connects"
+                    "Step 1: first observation and what it implies",
+                    "Step 2: how evidence connects",
+                    "Step 3: conclusion"
                   ]
                 }
+
+                Severity classification:
+                  P0 — complete outage, critical user path fully broken (checkout, login, payment)
+                  P1 — major degradation, most users impacted, SLA breach imminent
+                  P2 — partial degradation, subset of users impacted, degraded experience
 
                 Investigation rules:
                 - Base ALL conclusions ONLY on evidence present in the context. Do NOT hallucinate.
@@ -61,6 +73,8 @@ public class InvestigationPromptBuilder {
                 - affectedServices and propagationPath must use lowercase service IDs: \
                 auth, payment, order, inventory, notification.
                 - confidenceScore is 0–100 reflecting evidence strength.
+                - correlatedDeployments: list ONLY deployments with temporal or causal link to the incident. \
+                Label signal level: [HIGH SIGNAL], [MEDIUM SIGNAL], [LOW SIGNAL], [UNRELATED].
                 - Be forensic and operational. Not conversational.
                 """;
     }
@@ -69,17 +83,21 @@ public class InvestigationPromptBuilder {
         return contextNarrative
             + "\n\nINVESTIGATION TASK: " + triggerDescription
             + "\n\nAnalyze the runtime context above and produce a structured root cause analysis "
-            + "as a JSON object matching the specified schema. Use only evidence present in the context.";
+            + "as a JSON object matching the specified schema. Include severity classification, "
+            + "end-user business impact, and correlated deployments. "
+            + "Use only evidence present in the context.";
     }
 
-    public String buildFollowUpPrompt(String originalContext, String originalRca, String question) {
+    /**
+     * Follow-up prompt — passes original narrative + human-readable RCA summary.
+     * Deliberately does NOT pass the raw RCA JSON to avoid noise.
+     */
+    public String buildFollowUpPrompt(String originalContext, String question) {
         return "ORIGINAL RUNTIME INVESTIGATION CONTEXT:\n"
             + originalContext
-            + "\n\nORIGINAL ROOT CAUSE ANALYSIS:\n"
-            + originalRca
             + "\n\nFOLLOW-UP QUESTION: " + question
-            + "\n\nAnswer the follow-up question based on the investigation context and RCA above. "
-            + "Be specific and concise. Reference actual metrics, service names, and evidence from the context. "
-            + "Plain text answer — no JSON.";
+            + "\n\nAnswer the follow-up question based on the investigation context above. "
+            + "Be specific and concise. Reference actual metrics, service names, and evidence. "
+            + "Plain text answer — no JSON. 2–4 sentences max unless the question requires detail.";
     }
 }

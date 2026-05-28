@@ -154,6 +154,7 @@ export default function App() {
           onPlaybackPhaseChange={handlePlaybackPhaseChange}
           onInvestigate={handleInvestigate}
           investigationPath={investigationPath}
+          investigatingId={investigatingAnomaly?.id ?? null}
         />
       </div>
 

@@ -31,6 +31,7 @@ export default function Dashboard({
   onPlaybackPhaseChange,
   onInvestigate,
   investigationPath,
+  investigatingId,
 }) {
   return (
     <div
@@ -70,7 +71,11 @@ export default function Dashboard({
 
       {/* Anomaly feed — visible during incident or playback (phase > 0) */}
       {(incidentActive || playbackPhase > 0) && anomalies.length > 0 && (
-        <AnomalyFeed anomalies={anomalies} onInvestigate={onInvestigate} />
+        <AnomalyFeed
+          anomalies={anomalies}
+          onInvestigate={onInvestigate}
+          investigatingId={investigatingId}
+        />
       )}
 
       {/* Service health cards */}

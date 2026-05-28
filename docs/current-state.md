@@ -82,12 +82,12 @@ raw metric values — they never know the "why". Our data model mirrors that cor
 
 ### Backend — new
 - ✅ model/InvestigationRequest.java — record(anomalyId, timelineEventId)
-- ✅ model/InvestigationResponse.java — record(id, title, probableRootCause, affectedServices, propagationPath, supportingEvidence, recommendedActions, confidenceScore, reasoningSteps)
+- ✅ model/InvestigationResponse.java — record(id, title, **severity**, **endUserImpact**, probableRootCause, affectedServices, propagationPath, supportingEvidence, **correlatedDeployments**, recommendedActions, confidenceScore, reasoningSteps)
 - ✅ model/FollowUpRequest.java — record(investigationId, question)
 - ✅ model/FollowUpResponse.java — record(answer)
 - ✅ service/InvestigationContextService.java — aggregates full runtime context narrative
 - ✅ service/InvestigationPromptBuilder.java — builds forensic Claude prompts
-- ✅ service/AIInvestigationService.java — Claude API call + response parsing + follow-up context storage
+- ✅ service/AIInvestigationService.java — Claude API + **MOCK mode fallback** + response parsing + bounded follow-up context store (max 100) + RestTemplate timeouts
 - ✅ controller/InvestigationController.java — POST /investigate, POST /investigate/follow-up
 - ✅ application.properties — anthropic.api.key, anthropic.model config
 
@@ -97,10 +97,10 @@ raw metric values — they never know the "why". Our data model mirrors that cor
 
 ### Frontend — new
 - ✅ components/AIReasoningStream.jsx — animated sequential reasoning steps
-- ✅ components/InvestigationPanel.jsx — right-side investigation drawer with RCA + follow-up chat
+- ✅ components/InvestigationPanel.jsx — right-side drawer: **P0/P1/P2 severity badge** + **End User Impact banner** + **Correlated Deployments section** + RCA sections + follow-up chat
 
 ### Frontend — updated
-- ✅ components/AnomalyFeed.jsx — Investigate button on each anomaly card
+- ✅ components/AnomalyFeed.jsx — Investigate button on each anomaly card + **active investigation highlight** (pulsing cyan border + "investigating" pill)
 - ✅ components/TimelinePanel.jsx — Investigate button on active timeline events (non-deployment)
 - ✅ components/DependencyGraph.jsx — investigationPath prop highlights propagation path in purple
 - ✅ components/Dashboard.jsx — passes onInvestigate + investigationPath props

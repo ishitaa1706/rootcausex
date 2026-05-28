@@ -3,20 +3,20 @@ import { AlertTriangle, XCircle, ChevronRight, Search } from 'lucide-react'
 
 const SEVERITY = {
   critical: {
-    icon: XCircle,
-    color: '#ef4444',
-    bg: 'rgba(239,68,68,0.08)',
+    icon:   XCircle,
+    color:  '#ef4444',
+    bg:     'rgba(239,68,68,0.08)',
     border: 'rgba(239,68,68,0.3)',
-    badge: 'rgba(239,68,68,0.15)',
-    label: 'CRITICAL',
+    badge:  'rgba(239,68,68,0.15)',
+    label:  'CRITICAL',
   },
   warning: {
-    icon: AlertTriangle,
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.06)',
+    icon:   AlertTriangle,
+    color:  '#f59e0b',
+    bg:     'rgba(245,158,11,0.06)',
     border: 'rgba(245,158,11,0.22)',
-    badge: 'rgba(245,158,11,0.12)',
-    label: 'WARNING',
+    badge:  'rgba(245,158,11,0.12)',
+    label:  'WARNING',
   },
 }
 
@@ -28,7 +28,16 @@ const TYPE_LABEL = {
   DEPENDENCY_INSTABILITY: 'Dependency Instability',
 }
 
-function AnomalyRow({ anomaly, index, onInvestigate }) {
+/**
+ * AnomalyRow — single anomaly card.
+ *
+ * Props:
+ *   anomaly         — the anomaly object
+ *   index           — stagger animation index
+ *   onInvestigate   — called with the anomaly when "Investigate" is clicked
+ *   isActive        — true when this anomaly is currently open in InvestigationPanel
+ */
+function AnomalyRow({ anomaly, index, onInvestigate, isActive }) {
   const cfg  = SEVERITY[anomaly.severity] ?? SEVERITY.warning
   const Icon = cfg.icon
 
@@ -37,11 +46,34 @@ function AnomalyRow({ anomaly, index, onInvestigate }) {
       initial={{ opacity: 0, x: -14 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.35, delay: index * 0.05 }}
-      className="flex items-start gap-3 px-4 py-3 rounded-lg"
-      style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
+      className="flex items-start gap-3 px-4 py-3 rounded-lg relative"
+      style={{
+        background:  isActive ? 'rgba(56,189,248,0.07)' : cfg.bg,
+        border:      isActive ? '1px solid rgba(56,189,248,0.4)' : `1px solid ${cfg.border}`,
+        boxShadow:   isActive ? '0 0 12px rgba(56,189,248,0.12)' : 'none',
+        transition:  'border-color 0.2s, box-shadow 0.2s',
+      }}
     >
+      {/* Active investigation indicator — pulsing cyan left bar */}
+      {isActive && (
+        <motion.div
+          animate={{ opacity: [1, 0.4, 1] }}
+          transition={{ duration: 1.4, repeat: Infinity }}
+          style={{
+            position:    'absolute',
+            left:        0,
+            top:         6,
+            bottom:      6,
+            width:       3,
+            borderRadius: 2,
+            background:  '#38bdf8',
+            boxShadow:   '0 0 8px #38bdf8',
+          }}
+        />
+      )}
+
       {/* Severity icon */}
-      <Icon size={14} color={cfg.color} className="shrink-0 mt-0.5" />
+      <Icon size={14} color={isActive ? '#38bdf8' : cfg.color} className="shrink-0 mt-0.5" />
 
       {/* Content */}
       <div className="flex-1 min-w-0">
@@ -49,7 +81,7 @@ function AnomalyRow({ anomaly, index, onInvestigate }) {
           {/* Severity badge */}
           <span
             className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded tracking-wider"
-            style={{ background: cfg.badge, color: cfg.color }}
+            style={{ background: isActive ? 'rgba(56,189,248,0.15)' : cfg.badge, color: isActive ? '#38bdf8' : cfg.color }}
           >
             {cfg.label}
           </span>
@@ -62,9 +94,21 @@ function AnomalyRow({ anomaly, index, onInvestigate }) {
           <ChevronRight size={10} color="#334155" />
 
           {/* Service name */}
-          <span className="text-xs font-mono" style={{ color: cfg.color, opacity: 0.8 }}>
+          <span className="text-xs font-mono" style={{ color: isActive ? '#38bdf8' : cfg.color, opacity: 0.8 }}>
             {anomaly.serviceName}
           </span>
+
+          {/* "Investigating" pill */}
+          {isActive && (
+            <motion.span
+              animate={{ opacity: [1, 0.5, 1] }}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-full uppercase tracking-wider"
+              style={{ background: 'rgba(56,189,248,0.12)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)' }}
+            >
+              investigating
+            </motion.span>
+          )}
         </div>
 
         {/* Description */}
@@ -84,21 +128,21 @@ function AnomalyRow({ anomaly, index, onInvestigate }) {
             onClick={() => onInvestigate(anomaly)}
             className="flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-1 rounded transition-all duration-150"
             style={{
-              background: 'rgba(56,189,248,0.08)',
-              border:     '1px solid rgba(56,189,248,0.2)',
-              color:      '#38bdf8',
+              background:  isActive ? 'rgba(56,189,248,0.18)' : 'rgba(56,189,248,0.08)',
+              border:      isActive ? '1px solid rgba(56,189,248,0.5)' : '1px solid rgba(56,189,248,0.2)',
+              color:       '#38bdf8',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(56,189,248,0.15)'
-              e.currentTarget.style.borderColor = 'rgba(56,189,248,0.4)'
+              e.currentTarget.style.background   = 'rgba(56,189,248,0.2)'
+              e.currentTarget.style.borderColor  = 'rgba(56,189,248,0.5)'
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(56,189,248,0.08)'
-              e.currentTarget.style.borderColor = 'rgba(56,189,248,0.2)'
+              e.currentTarget.style.background   = isActive ? 'rgba(56,189,248,0.18)' : 'rgba(56,189,248,0.08)'
+              e.currentTarget.style.borderColor  = isActive ? 'rgba(56,189,248,0.5)' : 'rgba(56,189,248,0.2)'
             }}
           >
             <Search size={9} />
-            Investigate
+            {isActive ? 'Open' : 'Investigate'}
           </motion.button>
         )}
       </div>
@@ -106,7 +150,15 @@ function AnomalyRow({ anomaly, index, onInvestigate }) {
   )
 }
 
-export default function AnomalyFeed({ anomalies, onInvestigate }) {
+/**
+ * AnomalyFeed — anomaly alert list.
+ *
+ * Props:
+ *   anomalies           — list of Anomaly objects
+ *   onInvestigate       — (anomaly) => void, called when "Investigate" is clicked
+ *   investigatingId     — id of anomaly currently open in InvestigationPanel (or null)
+ */
+export default function AnomalyFeed({ anomalies, onInvestigate, investigatingId }) {
   if (!anomalies || anomalies.length === 0) return null
 
   const criticalCount = anomalies.filter(a => a.severity === 'critical').length
@@ -120,8 +172,8 @@ export default function AnomalyFeed({ anomalies, onInvestigate }) {
       className="mb-5 rounded-xl overflow-hidden"
       style={{
         background: 'rgba(3, 9, 22, 0.85)',
-        border: '1px solid rgba(239,68,68,0.2)',
-        boxShadow: '0 0 30px rgba(239,68,68,0.08)',
+        border:     '1px solid rgba(239,68,68,0.2)',
+        boxShadow:  '0 0 30px rgba(239,68,68,0.08)',
       }}
     >
       {/* Header */}
@@ -142,8 +194,10 @@ export default function AnomalyFeed({ anomalies, onInvestigate }) {
         </div>
         <div className="flex items-center gap-3">
           {criticalCount > 0 && (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
+            <span
+              className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+            >
               {criticalCount} critical
             </span>
           )}
@@ -157,7 +211,13 @@ export default function AnomalyFeed({ anomalies, onInvestigate }) {
       <div className="flex flex-col gap-2 p-3">
         <AnimatePresence>
           {anomalies.map((anomaly, i) => (
-            <AnomalyRow key={anomaly.id} anomaly={anomaly} index={i} onInvestigate={onInvestigate} />
+            <AnomalyRow
+              key={anomaly.id}
+              anomaly={anomaly}
+              index={i}
+              onInvestigate={onInvestigate}
+              isActive={anomaly.id === investigatingId}
+            />
           ))}
         </AnimatePresence>
       </div>
