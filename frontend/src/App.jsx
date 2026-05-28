@@ -39,10 +39,20 @@ export default function App() {
   const [investigatingEventId, setInvestigatingEventId] = useState(null)
   const [investigationPath,    setInvestigationPath]    = useState([])
 
-  // ── Initial load ──────────────────────────────────────────────────────────
+  // ── Initial load — also re-hydrates incident state after a page refresh ──
   useEffect(() => {
-    Promise.all([api.getServices(), api.getSystemStatus()])
-      .then(([svcs, status]) => { setServices(svcs); setSystemStatus(status) })
+    Promise.all([api.getServices(), api.getSystemStatus(), api.getIncidentStatus()])
+      .then(([svcs, status, incStatus]) => {
+        setServices(svcs)
+        setSystemStatus(status)
+        // If the backend already has a running incident (e.g. after a browser refresh),
+        // restore incidentActive + phase so polling, timeline, and anomaly feed all wake up.
+        if (incStatus?.active) {
+          setIncidentActive(true)
+          setIncidentPhase(incStatus.phaseIndex ?? 0)
+          api.getAnomalies().then(anoms => setAnomalies(anoms)).catch(() => {})
+        }
+      })
       .catch(() => {})
   }, [])
 
@@ -140,13 +150,16 @@ export default function App() {
   const displayServices     = playbackServices     ?? services
   const displaySystemStatus = playbackSystemStatus ?? systemStatus
 
+  // ── Active dashboard view (controlled by Sidebar) ────────────────────────
+  const [activeView, setActiveView] = useState('dashboard')
+
   return (
     <InvestigationFocusProvider>
       <div
         className="flex"
         style={{ height: '100vh', overflow: 'hidden', background: '#020817' }}
       >
-        <Sidebar />
+        <Sidebar activeView={activeView} onNavigate={setActiveView} />
         <div className="flex flex-col flex-1 overflow-hidden">
           <Header systemStatus={displaySystemStatus} />
           <Dashboard
@@ -163,6 +176,7 @@ export default function App() {
             investigationPath={investigationPath}
             investigatingId={investigatingAnomaly?.id ?? null}
             investigationActive={investigationOpen}
+            activeView={activeView}
           />
         </div>
 
