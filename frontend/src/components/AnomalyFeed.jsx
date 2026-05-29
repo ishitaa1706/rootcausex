@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertTriangle, XCircle, ChevronRight, Search } from 'lucide-react'
+import { AlertTriangle, XCircle, ChevronRight, Search, Terminal } from 'lucide-react'
 
 const SEVERITY = {
   critical: {
@@ -35,9 +35,10 @@ const TYPE_LABEL = {
  *   anomaly         — the anomaly object
  *   index           — stagger animation index
  *   onInvestigate   — called with the anomaly when "Investigate" is clicked
+ *   onRuntimeQuery  — called with a pre-filled query string (optional)
  *   isActive        — true when this anomaly is currently open in InvestigationPanel
  */
-function AnomalyRow({ anomaly, index, onInvestigate, isActive }) {
+function AnomalyRow({ anomaly, index, onInvestigate, onRuntimeQuery, isActive }) {
   const cfg  = SEVERITY[anomaly.severity] ?? SEVERITY.warning
   const Icon = cfg.icon
 
@@ -117,34 +118,68 @@ function AnomalyRow({ anomaly, index, onInvestigate, isActive }) {
         </p>
       </div>
 
-      {/* Right side: timestamp + investigate button */}
+      {/* Right side: timestamp + action buttons */}
       <div className="flex flex-col items-end gap-2 shrink-0">
         <span className="text-[10px] font-mono" style={{ color: '#334155' }}>
           {anomaly.timestamp}
         </span>
-        {onInvestigate && (
-          <motion.button
-            whileTap={{ scale: 0.93 }}
-            onClick={() => onInvestigate(anomaly)}
-            className="flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-1 rounded transition-all duration-150"
-            style={{
-              background:  isActive ? 'rgba(56,189,248,0.18)' : 'rgba(56,189,248,0.08)',
-              border:      isActive ? '1px solid rgba(56,189,248,0.5)' : '1px solid rgba(56,189,248,0.2)',
-              color:       '#38bdf8',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background   = 'rgba(56,189,248,0.2)'
-              e.currentTarget.style.borderColor  = 'rgba(56,189,248,0.5)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background   = isActive ? 'rgba(56,189,248,0.18)' : 'rgba(56,189,248,0.08)'
-              e.currentTarget.style.borderColor  = isActive ? 'rgba(56,189,248,0.5)' : 'rgba(56,189,248,0.2)'
-            }}
-          >
-            <Search size={9} />
-            {isActive ? 'Open' : 'Investigate'}
-          </motion.button>
-        )}
+
+        <div className="flex items-center gap-1.5">
+          {/* Runtime Diagnosis shortcut */}
+          {onRuntimeQuery && (
+            <motion.button
+              whileTap={{ scale: 0.93 }}
+              onClick={() => {
+                const typeLabel = TYPE_LABEL[anomaly.anomalyType] ?? anomaly.anomalyType
+                onRuntimeQuery(`Why is ${anomaly.serviceName} showing ${typeLabel}?`)
+              }}
+              title="Run Runtime Diagnosis on this anomaly"
+              className="flex items-center gap-1 text-[10px] font-mono px-1.5 py-1 rounded transition-all duration-150"
+              style={{
+                background: 'rgba(56,189,248,0.04)',
+                border:     '1px solid rgba(56,189,248,0.12)',
+                color:      '#334155',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(56,189,248,0.1)'
+                e.currentTarget.style.color      = '#38bdf8'
+                e.currentTarget.style.borderColor = 'rgba(56,189,248,0.3)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background  = 'rgba(56,189,248,0.04)'
+                e.currentTarget.style.color       = '#334155'
+                e.currentTarget.style.borderColor = 'rgba(56,189,248,0.12)'
+              }}
+            >
+              <Terminal size={9} />
+            </motion.button>
+          )}
+
+          {/* Investigate button */}
+          {onInvestigate && (
+            <motion.button
+              whileTap={{ scale: 0.93 }}
+              onClick={() => onInvestigate(anomaly)}
+              className="flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-1 rounded transition-all duration-150"
+              style={{
+                background:  isActive ? 'rgba(56,189,248,0.18)' : 'rgba(56,189,248,0.08)',
+                border:      isActive ? '1px solid rgba(56,189,248,0.5)' : '1px solid rgba(56,189,248,0.2)',
+                color:       '#38bdf8',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background  = 'rgba(56,189,248,0.2)'
+                e.currentTarget.style.borderColor = 'rgba(56,189,248,0.5)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background  = isActive ? 'rgba(56,189,248,0.18)' : 'rgba(56,189,248,0.08)'
+                e.currentTarget.style.borderColor = isActive ? 'rgba(56,189,248,0.5)' : 'rgba(56,189,248,0.2)'
+              }}
+            >
+              <Search size={9} />
+              {isActive ? 'Open' : 'Investigate'}
+            </motion.button>
+          )}
+        </div>
       </div>
     </motion.div>
   )
@@ -156,9 +191,10 @@ function AnomalyRow({ anomaly, index, onInvestigate, isActive }) {
  * Props:
  *   anomalies           — list of Anomaly objects
  *   onInvestigate       — (anomaly) => void, called when "Investigate" is clicked
+ *   onRuntimeQuery      — (query: string) => void, pre-fills Runtime Diagnosis panel (optional)
  *   investigatingId     — id of anomaly currently open in InvestigationPanel (or null)
  */
-export default function AnomalyFeed({ anomalies, onInvestigate, investigatingId }) {
+export default function AnomalyFeed({ anomalies, onInvestigate, onRuntimeQuery, investigatingId }) {
   if (!anomalies || anomalies.length === 0) return null
 
   const criticalCount = anomalies.filter(a => a.severity === 'critical').length
@@ -216,6 +252,7 @@ export default function AnomalyFeed({ anomalies, onInvestigate, investigatingId 
               anomaly={anomaly}
               index={i}
               onInvestigate={onInvestigate}
+              onRuntimeQuery={onRuntimeQuery}
               isActive={anomaly.id === investigatingId}
             />
           ))}

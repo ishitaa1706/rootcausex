@@ -1,17 +1,21 @@
 # RootCauseX — Current Implementation State
 
 Last Updated:
-Phase 5 — AI Cognition Experience (Frontend DONE · No backend changes required)
+Phase 6 — Contextual Runtime Querying + Manual Phase Control
 
 ---
 
 # Current Phase
 
 Phase:
-Phase 5 — AI Cognition Experience
+Phase 6 — Contextual Runtime Querying (Secondary Interaction Layer)
 
 Status:
-COMPLETE ✅ — Frontend done (pure UX layer, no backend changes needed)
+COMPLETE ✅ — Backend + Frontend done
+
+Also completed this session:
+- Manual Incident Phase Control — replaces 20s auto-advance with user-controlled "Next Phase →" button
+- Password Reset Login Failure Scenario — secondary operational mystery for Ask Runtime demo
 
 ---
 
@@ -125,6 +129,116 @@ SuggestedQuestions appear below — contextual, reference real service names fro
 
 ---
 
+## Phase 6 — Contextual Runtime Querying ✅
+
+### Purpose
+Secondary interaction layer — allows engineers to ask runtime-aware questions
+independently of any active anomaly or investigation. Primary workflow
+(incident → investigate → RCA) is unchanged and remains dominant.
+
+### Backend — new
+- ✅ `model/RuntimeQueryRequest.java` — record(query, investigationContext)
+- ✅ `model/RuntimeQueryResponse.java` — record(summary, evidence[], services[], relatedDeployments[], confidence)
+- ✅ `service/RuntimeQueryService.java` — full runtime context build + Claude API + pattern-matched MOCK mode
+  - MOCK handles: deployment queries, auth instability, deployment cause, propagation, historical, topology, retry, payment, generic status
+  - Each mock is incident-phase-aware (responds differently at phase 0 vs 1–4)
+  - Falls back to mock automatically on Claude API failure
+- ✅ `controller/RuntimeQueryController.java` — POST /runtime/query
+- ✅ `service/InvestigationPromptBuilder.java` — added `buildRuntimeQuerySystemPrompt()` and `buildRuntimeQueryUserPrompt()`
+
+### Backend — new endpoints
+- ✅ POST /runtime/query
+
+### Frontend — new
+- ✅ `components/SuggestedRuntimeQueries.jsx` — 4 contextual chips adapting to: healthy / incident-active / investigation-active states
+- ✅ `components/AskRuntimePanel.jsx` — compact runtime query panel:
+  - Typewriter-style streaming response reveal (11ms/char)
+  - Staggered evidence bullets after typewriter completes
+  - Service chips + animated confidence bar
+  - Related deployments section
+  - Blinking cursor while streaming
+  - Investigation context badge when `InvestigationFocusStore.isActive`
+  - `prefill` prop: auto-fills + submits (used by anomaly quick-query)
+  - Clears and accepts new queries after each response
+
+### Frontend — updated
+- ✅ `api/client.js` — added `runtimeQuery(query, investigationContext)`
+- ✅ `components/AnomalyFeed.jsx` — `Terminal` icon button on each anomaly card → generates contextual query ("Why is auth-service showing Retry Amplification?") → pre-fills + submits AskRuntimePanel
+- ✅ `components/Dashboard.jsx` — `AskRuntimePanel` rendered below anomaly feed on `dashboard` + `investigate` views; `runtimeQueryPrefill` state managed internally
+
+### Investigation context awareness
+When `InvestigationFocusStore.isActive`:
+  - "INVESTIGATION CONTEXT" badge shown on panel header
+  - Propagation path is passed to backend as `investigationContext`
+  - Suggested queries change to investigation-specific ones
+  - Claude receives the active RCA context in its prompt
+
+### Anomaly quick-query flow
+1. Incident active → anomaly cards appear
+2. Click `⬡` (Terminal icon) on any anomaly card
+3. `AskRuntimePanel` auto-populates with "Why is [service] showing [anomaly type]?"
+4. Auto-submits → typewriter response appears
+
+---
+
+## Password Reset Login Failure Scenario ✅ (operational mystery for Ask Runtime demo)
+
+### Purpose
+Secondary demo scenario proving RootCauseX handles **subtle operational regressions**, not just
+catastrophic incidents. The retry storm is the dramatic cinematic demo. This is the nuanced one.
+
+### The story
+auth-service v2.4 (commit f7e8d9a, alice, 1h ago) refactored JWT signing key rotation.
+Password reset tokens are now issued with the new signing format, but downstream auth-validator
+instances still cache the old keys. Post-reset logins fail intermittently — 9% failure rate
+on that specific path. The dashboard stays mostly healthy (no red banner, no cascade).
+The mystery only surfaces when someone asks Ask Runtime.
+
+### What was changed
+- ✅ `MockDataRepository.java` — auth-service updated to v2.4, latency 45ms → 65ms (subtle drift),
+  deployment #5 added (f7e8d9a, "Refactor JWT signing key rotation"), commit f7e8d9a added at top of auth commits.
+  v2.1 (retry storm) remains in history. Both coexist — different stories, different commits.
+- ✅ `TimelineService.java` — 3 password reset events added (phase=0, always visible):
+  5:45 PM: auth-service v2.4 deployed · 5:52 PM: login failure rate 0.3%→9% · 6:05 PM: JWT mismatch alerts
+- ✅ `RuntimeQueryService.java` — 3 new mock response methods:
+  `mockPasswordReset()` · `mockLoginFailure()` · `mockJwtSigningKey()`
+  Triggered by patterns: "password reset", "reset login", "login fail", "jwt", "signing key", "token mismatch"
+  `mockDeployments()` updated to mention v2.4 first as highest-risk recent change
+- ✅ `SuggestedRuntimeQueries.jsx` — "Why are password reset logins failing?" added as first chip in HEALTHY_QUERIES
+
+### Demo flow
+1. Dashboard appears mostly healthy (auth latency 65ms — slightly elevated, no incident banner)
+2. Ask Runtime panel visible with chip: **"Why are password reset logins failing?"**
+3. User clicks → AI explains JWT signing key rotation, validator cache mismatch, 9% failure rate
+4. Judges see contextual operational reasoning from a subtle signal — different from the retry storm
+
+### What this proves (together with retry storm)
+- Retry storm → catastrophic cascading failure → propagation intelligence
+- Password reset → silent operational regression → contextual debugging intelligence
+- RootCauseX handles BOTH ends of the severity spectrum
+
+---
+
+## Manual Incident Phase Control ✅ (also completed this session)
+
+### Backend
+- ✅ `IncidentStateManager.java` — replaced time-based `currentPhase()` with stored `volatile int currentPhase`
+  - `trigger()` resets `currentPhase = 1`
+  - `reset()` resets `currentPhase = 1`
+  - `advancePhase()` increments up to max 4
+- ✅ `IncidentController.java` — added `POST /incident/advance`
+
+### Frontend
+- ✅ `components/IncidentControls.jsx` — when incident active: P1–P4 badge pill + "Next Phase →" button (disabled + "Max Phase" at P4) + Reset button
+- ✅ `api/client.js` — added `advanceIncident()`
+- ✅ `App.jsx` — `handleAdvance` callback re-fetches services + status
+- ✅ `components/Dashboard.jsx` — passes `onAdvance` to `IncidentControls`
+
+### New endpoints (this session)
+- ✅ POST /incident/advance
+
+---
+
 ## Phase 4 — AI Investigation Workflows ✅
 
 ### Backend — new
@@ -196,6 +310,8 @@ SuggestedQuestions appear below — contextual, reference real service names fro
 | GET  /timeline/correlation/{id}     | 3     | ✅ DONE   |
 | POST /investigate                   | 4     | ✅ DONE   |
 | POST /investigate/follow-up         | 4     | ✅ DONE   |
+| POST /incident/advance              | 6     | ✅ DONE   |
+| POST /runtime/query                 | 6     | ✅ DONE   |
 
 ---
 

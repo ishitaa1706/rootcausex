@@ -69,4 +69,8 @@ export const api = {
     postJson('/investigate', { anomalyId, timelineEventId }),
   postFollowUp: (investigationId, question) =>
     postJson('/investigate/follow-up', { investigationId, question }),
+
+  // Runtime Query — Phase 6
+  runtimeQuery: (query, investigationContext) =>
+    postJson('/runtime/query', { query, investigationContext: investigationContext ?? null }),
 }

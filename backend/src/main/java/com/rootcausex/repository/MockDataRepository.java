@@ -45,10 +45,15 @@ public class MockDataRepository {
         return List.of(
 
             new ServiceInfo(
-                "auth", "Auth Service", "AUTH", "v2.1", "healthy", 99.97, "#38bdf8",
-                "2h ago", "alice",
+                // v2.4 is the latest deployment (1h ago, JWT signing key rotation).
+                // v2.1 (2h ago) is still in the deployment list — it's the retry storm root cause.
+                // Latency is slightly elevated (65ms vs 42ms baseline) — the password reset
+                // JWT cache mismatch adds a small but measurable validation overhead.
+                // Status stays HEALTHY — this is a subtle operational regression, not a cascade.
+                "auth", "Auth Service", "AUTH", "v2.4", "healthy", 99.97, "#38bdf8",
+                "1h ago", "alice",
                 new ServiceMetrics(
-                    new MetricValue(45,   42,   "ms",    "up"),
+                    new MetricValue(65,   42,   "ms",    "up"),
                     new MetricValue(0.12, 0.10, "%",     "up"),
                     new MetricValue(12,   10,   "/min",  "up"),
                     new MetricValue(1240, 1200, "req/s", "stable")
@@ -112,6 +117,14 @@ public class MockDataRepository {
 
     private List<Deployment> buildDeployments() {
         return List.of(
+            // Most recent — password reset JWT signing key rotation
+            new Deployment(
+                5, "auth", "Auth Service", "v2.4", "v2.3",
+                "1h ago", "alice", "f7e8d9a",
+                "Refactor JWT signing key rotation for auth token refresh flow",
+                "refactor"
+            ),
+            // Retry storm root cause deployment — still in history
             new Deployment(
                 1, "auth", "Auth Service", "v2.1", "v2.0",
                 "2h ago", "alice", "a1b2c3d",
@@ -142,7 +155,12 @@ public class MockDataRepository {
     private List<Commit> buildCommits() {
         return List.of(
 
-            // Auth — most recent commits (these will matter for AI investigation in Phase 4)
+            // Auth — most recent commits
+            new Commit(
+                "f7e8d9a", "auth", "Auth Service", "alice", "1h ago",
+                "Refactor JWT signing key rotation for auth token refresh flow",
+                "f7e8d9a1b2c3d4e5", "main", "refactor"
+            ),
             new Commit(
                 "a1b2c3d", "auth", "Auth Service", "alice", "2h ago",
                 "Add exponential backoff retry policy for downstream calls",

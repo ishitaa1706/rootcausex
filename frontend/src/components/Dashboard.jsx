@@ -1,11 +1,13 @@
+import { useState }             from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search } from 'lucide-react'
-import MetricsCard      from './MetricsCard'
-import DependencyGraph  from './DependencyGraph'
-import SystemStatus     from './SystemStatus'
-import IncidentControls from './IncidentControls'
-import AnomalyFeed      from './AnomalyFeed'
-import TimelinePanel    from './TimelinePanel'
+import { Search }               from 'lucide-react'
+import MetricsCard              from './MetricsCard'
+import DependencyGraph          from './DependencyGraph'
+import SystemStatus             from './SystemStatus'
+import IncidentControls         from './IncidentControls'
+import AnomalyFeed              from './AnomalyFeed'
+import TimelinePanel            from './TimelinePanel'
+import AskRuntimePanel          from './AskRuntimePanel'
 
 function SectionLabel({ text }) {
   return (
@@ -36,11 +38,15 @@ export default function Dashboard({
   investigationActive,
   activeView = 'dashboard',
 }) {
-  const showAll      = activeView === 'dashboard'
-  const showMetrics  = activeView === 'metrics'   || showAll
-  const showTopology = activeView === 'topology'  || showAll
-  const showTimeline = activeView === 'timeline'  || showAll
-  const showAnomaly  = activeView === 'investigate' || showAll
+  // ── Runtime query prefill (from anomaly "Runtime Diagnosis" button) ─────────
+  const [runtimeQueryPrefill, setRuntimeQueryPrefill] = useState(null)
+
+  const showAll          = activeView === 'dashboard'
+  const showMetrics      = activeView === 'metrics'      || showAll
+  const showTopology     = activeView === 'topology'     || showAll
+  const showTimeline     = activeView === 'timeline'     || showAll
+  const showAnomaly      = activeView === 'investigate'  || showAll
+  const showRuntimeQuery = activeView === 'dashboard'    || activeView === 'investigate'
 
   // View label shown in the subtitle bar
   const viewLabel = {
@@ -131,6 +137,7 @@ export default function Dashboard({
             <AnomalyFeed
               anomalies={anomalies}
               onInvestigate={onInvestigate}
+              onRuntimeQuery={setRuntimeQueryPrefill}
               investigatingId={investigatingId}
             />
           </motion.div>
@@ -151,6 +158,26 @@ export default function Dashboard({
           </p>
         </motion.div>
       )}
+
+      {/* ── Runtime Diagnosis panel (Dashboard + Investigate views) ── */}
+      <AnimatePresence>
+        {showRuntimeQuery && (
+          <motion.div
+            key="runtime-query"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.28 }}
+          >
+            <SectionLabel text="Runtime Diagnosis" />
+            <AskRuntimePanel
+              incidentActive={incidentActive}
+              prefill={runtimeQueryPrefill}
+              onPrefillConsumed={() => setRuntimeQueryPrefill(null)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Service health (Metrics view + Dashboard) ── */}
       <AnimatePresence>

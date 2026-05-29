@@ -113,6 +113,31 @@ public class TimelineService {
 
     private static final List<TimelineEvent> EVENTS = List.of(
 
+        // ── Background — Password reset JWT scenario (pre-incident, always visible) ──
+        // auth-service v2.4 introduced JWT signing key rotation 1h before the retry storm.
+        // These events appear in the timeline regardless of incident phase.
+        new TimelineEvent(
+            "evt-pw-001", "5:45 PM", "DEPLOYMENT", "info", 0,
+            "auth-service v2.4 deployed",
+            "JWT signing key rotation refactored for auth token refresh flow. " +
+            "Deployed by alice · commit f7e8d9a.",
+            List.of("auth"), "5", null
+        ),
+        new TimelineEvent(
+            "evt-pw-002", "5:52 PM", "DRIFT_DETECTED", "warning", 0,
+            "Login failure rate increase — auth-service",
+            "Post-reset login failure rate: 0.3% → 9%. " +
+            "JWT signature validation errors detected on password-reset token paths.",
+            List.of("auth"), null, null
+        ),
+        new TimelineEvent(
+            "evt-pw-003", "6:05 PM", "ANOMALY", "warning", 0,
+            "Password reset authentication mismatch alerts",
+            "847 post-reset tokens rejected in 30 minutes. " +
+            "Validator cache holding stale signing keys from pre-v2.4 deployment.",
+            List.of("auth"), null, null
+        ),
+
         // ── Phase 0 — Baseline ────────────────────────────────────────────────
         new TimelineEvent(
             "evt-001", "6:00 PM", "DEPLOYMENT", "info", 0,
