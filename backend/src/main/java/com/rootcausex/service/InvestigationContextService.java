@@ -68,6 +68,15 @@ public class InvestigationContextService {
                     sb.append("Description:  ").append(a.description()).append("\n");
                     sb.append("Detected at:  ").append(a.timestamp()).append("\n\n");
                 });
+
+            // Clarify investigation scope so Claude does not conflate separate scenarios
+            sb.append("INVESTIGATION SCOPE\n");
+            sb.append("This investigation covers the RETRY_AMPLIFICATION / LATENCY_DRIFT cascade ")
+              .append("that began at 6:08 PM on auth-service (incident phases 1–4).\n");
+            sb.append("auth-service v2.4 (commit f7e8d9a, JWT signing key rotation) is a SEPARATE ")
+              .append("operational regression tracked independently. It is NOT a root cause of the ")
+              .append("retry cascade. Do NOT attribute v2.4 as a causal factor for this investigation.\n");
+            sb.append("Focus root cause analysis on auth-service v2.1 (commit a1b2c3d) and later deployments.\n\n");
         }
 
         if (timelineEventId != null) {
@@ -114,12 +123,17 @@ public class InvestigationContextService {
         // ── Recent deployments ────────────────────────────────────────────────
         sb.append("RECENT DEPLOYMENTS\n");
         for (Deployment d : runtimeDataService.getAllDeployments()) {
+            boolean isSecondaryScenario = "f7e8d9a".equals(d.commit());
             sb.append("[").append(d.timestamp()).append("] ")
               .append(d.serviceName()).append(" ").append(d.version())
               .append(" (prev: ").append(d.previousVersion()).append(")")
               .append(" · by ").append(d.author())
               .append(" · commit ").append(d.commit()).append("\n")
-              .append("  Message: \"").append(d.message()).append("\"\n");
+              .append("  Message: \"").append(d.message()).append("\"");
+            if (isSecondaryScenario) {
+                sb.append("  [SECONDARY SCENARIO — JWT password-reset regression, NOT part of this incident]");
+            }
+            sb.append("\n");
         }
         sb.append("\n");
 
@@ -127,21 +141,37 @@ public class InvestigationContextService {
         sb.append("RECENT COMMITS (last 10)\n");
         List<Commit> commits = runtimeDataService.getAllCommits().stream().limit(10).toList();
         for (Commit c : commits) {
+            boolean isSecondaryCommit = "f7e8d9a".equals(c.id());
             sb.append("[").append(c.timestamp()).append("] ")
               .append(c.id()).append(" by ").append(c.author())
               .append(" (").append(c.serviceName()).append(")")
               .append(": \"").append(c.message()).append("\"")
-              .append(" [").append(c.type()).append("]\n");
+              .append(" [").append(c.type()).append("]");
+            if (isSecondaryCommit) {
+                sb.append(" [SECONDARY SCENARIO — NOT part of this incident]");
+            }
+            sb.append("\n");
         }
         sb.append("\n");
 
         // ── Incident timeline ─────────────────────────────────────────────────
-        sb.append("INCIDENT TIMELINE (chronological)\n");
+        // Only include events up to current phase — Claude must not see future state.
+        int currentPhase = incidentStateManager.currentPhase();
+        sb.append("INCIDENT TIMELINE (chronological, up to current phase ").append(currentPhase).append(")\n");
         for (TimelineEvent e : timelineService.getAllEvents()) {
-            sb.append("[").append(e.timestamp()).append("] ")
-              .append("[phase ").append(e.phase()).append("] ")
-              .append(e.eventType()).append(": ")
-              .append(e.title()).append(" — ").append(e.description()).append("\n");
+            if (e.phase() > currentPhase) continue;
+            boolean isSecondaryScenario = e.id().startsWith("evt-pw-");
+            if (isSecondaryScenario) {
+                sb.append("[").append(e.timestamp()).append("] ")
+                  .append("[SECONDARY SCENARIO — JWT password-reset, NOT this incident] ")
+                  .append(e.eventType()).append(": ")
+                  .append(e.title()).append(" — ").append(e.description()).append("\n");
+            } else {
+                sb.append("[").append(e.timestamp()).append("] ")
+                  .append("[phase ").append(e.phase()).append("] ")
+                  .append(e.eventType()).append(": ")
+                  .append(e.title()).append(" — ").append(e.description()).append("\n");
+            }
         }
         sb.append("\n");
 

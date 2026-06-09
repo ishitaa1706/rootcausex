@@ -102,21 +102,25 @@ export default function InvestigationPanel({ anomaly, eventId, onClose, onRcaRea
     setAnimationDone(false)
     setFollowUpMsgs([])
 
+    let cancelled = false
     const triggerId = anomaly?.id ?? eventId ?? 'unknown'
     startInvestigation(triggerId)
 
     api.postInvestigate(anomaly?.id ?? null, eventId ?? null)
       .then(data => {
+        if (cancelled) return
         setRca(data)
         // Notify app to update investigationPath → highlights graph
         if (onRcaReady) onRcaReady(data.propagationPath ?? [])
         // Drive the store → triggers step-by-step graph animation
         storeRcaReady(data)
       })
-      .catch(() => setStatus('error'))
+      .catch(() => { if (!cancelled) setStatus('error') })
 
-    // Clean up store on unmount
-    return () => closeInvestigation()
+    return () => {
+      cancelled = true
+      closeInvestigation()
+    }
   }, [anomaly?.id, eventId])
 
   // Show RCA content only when BOTH animation done AND data ready
