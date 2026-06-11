@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import Sidebar             from './components/Sidebar'
 import Header              from './components/Header'
 import Dashboard           from './components/Dashboard'
 import InvestigationPanel  from './components/InvestigationPanel'
+import SplashScreen        from './components/SplashScreen'
 import { services as mockServices, systemStatus as mockStatus } from './data/mockData'
 import { api } from './api/client'
 import { InvestigationFocusProvider } from './store/InvestigationFocusStore'
@@ -21,6 +22,8 @@ import { InvestigationFocusProvider } from './store/InvestigationFocusStore'
  * reflects a specific point in the incident timeline.
  */
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true)
+
   // ── Live state ────────────────────────────────────────────────────────────
   const [services,       setServices]       = useState(mockServices)
   const [systemStatus,   setSystemStatus]   = useState(mockStatus)
@@ -164,9 +167,16 @@ export default function App() {
   // ── Active dashboard view (controlled by Sidebar) ────────────────────────
   const [activeView, setActiveView] = useState('dashboard')
 
+  if (showSplash) {
+    return <SplashScreen onEnter={() => setShowSplash(false)} />
+  }
+
   return (
     <InvestigationFocusProvider>
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6 }}
         className="flex"
         style={{ height: '100vh', overflow: 'hidden', background: '#020817' }}
       >
@@ -204,7 +214,7 @@ export default function App() {
             />
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
     </InvestigationFocusProvider>
   )
 }

@@ -50,7 +50,7 @@ export default function IncidentControls({
   const atMaxPhase = incidentPhase >= 4
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" style={{ opacity: 0 }}>
       <AnimatePresence mode="wait">
         {!incidentActive ? (
           // ── Trigger button ─────────────────────────────────────────────
